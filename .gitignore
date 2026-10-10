@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env*
+!.env.example
+*.tsbuildinfo
+.vercel/
+coverage/
+.remember/
+.DS_Store
+.superpowers/
+.vercel
+.remember
+.agents
+.agents/**
+.codex
+.codex/**
+evaluation-output/
