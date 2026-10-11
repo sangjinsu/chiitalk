@@ -1,5 +1,5 @@
-import { test, expect } from 'bun:test';
-import { createHandlers, type HandlerDependencies } from '../../src/lib/server/handlers';
+import { test, expect, spyOn } from 'bun:test';
+import { createHandlers, errorResponse, type HandlerDependencies } from '../../src/lib/server/handlers';
 import { readConfig } from '../../src/lib/server/security';
 import { QuotaService, type QuotaStore, type StoredLedger } from '../../src/lib/server/quota';
 import { issueSession, SESSION_COOKIE } from '../../src/lib/server/session';
@@ -45,4 +45,39 @@ test('quota outage never calls provider',async()=>{
 test('GET issues cookie with no writes and all responses disable caching',async()=>{
  const s=await setup(),r=await s.handler.session(new Request('http://localhost/api/session'));
  expect(r.status).toBe(200);expect(r.headers.get('set-cookie')).toContain('HttpOnly');expect(r.headers.get('cache-control')).toContain('no-store');expect(s.store.writes).toBe(0);
+});
+test('service errors identify the handler stage without exposing request or error content',async()=>{
+ const s=await setup(),logs:unknown[]=[];const logger=spyOn(console,'error').mockImplementation(value=>{logs.push(value);});
+ try {
+  s.store.failed=true;
+  const response=await s.handler.convert(s.req({characterId:'hachiware',text:'private-input'}));
+  expect(response.status).toBe(503);expect(s.calls).toBe(0);
+  expect(logs).toContainEqual({event:'chiitalk.service_unavailable',stage:'convert.quota',errorClass:'QuotaError'});
+  const runtime=errorResponse(new Error('private-environment-value'));
+  expect(runtime.status).toBe(503);
+  expect(logs).toContainEqual({event:'chiitalk.service_unavailable',stage:'runtime',errorClass:'Error'});
+  expect(JSON.stringify(logs)).not.toContain('private-input');expect(JSON.stringify(logs)).not.toContain('private-environment-value');
+ } finally {logger.mockRestore();}
+});
+test('normal input, session, origin and BotID rejections do not emit service errors',async()=>{
+ const s=await setup(),logs:unknown[]=[];const logger=spyOn(console,'error').mockImplementation(value=>{logs.push(value);});
+ try {
+  await s.handler.convert(s.req({characterId:'invalid',text:'private-input'}));
+  await s.handler.convert(s.req(undefined,undefined,{origin:'https://evil.test'}));
+  await s.handler.convert(s.req(undefined,undefined,{cookie:''}));
+  s.bot();await s.handler.convert(s.req());
+  expect(logs).toEqual([]);expect(s.calls).toBe(0);
+ } finally {logger.mockRestore();}
+});
+test('diagnostic failures preserve API responses and provider gating',async()=>{
+ const s=await setup();const logger=spyOn(console,'error').mockImplementation(()=>{throw new Error('diagnostic failure');});
+ try {
+  expect(errorResponse(new Error('private-error')).status).toBe(503);
+  s.store.failed=true;
+  const failed=await s.handler.convert(s.req());
+  expect(failed.status).toBe(503);expect(s.calls).toBe(0);expect(s.store.writes).toBe(0);
+  expect((await s.handler.session(new Request('http://localhost/api/session'))).status).toBe(503);
+  s.store.failed=false;
+  expect((await s.handler.convert(s.req())).status).toBe(200);expect(s.calls).toBe(1);expect(s.store.writes).toBe(1);
+ } finally {logger.mockRestore();}
 });

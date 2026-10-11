@@ -1,6 +1,6 @@
 import type { ConvertRequest, ApiErrorCode, QuotaSnapshot } from '../contracts';
 import { assertOrigin, readInput, type ServerConfig } from './security';
-import { QuotaError, QuotaService } from './quota';
+import { QuotaError, QuotaService, safeServerErrorClass } from './quota';
 import { issueSession, requestCookie, sessionCookie, verifySession } from './session';
 import { buildPayload } from './provider';
 export interface HandlerDependencies {
@@ -20,40 +20,56 @@ const messages: Record<ApiErrorCode, string> = {
 export function jsonResponse(body: unknown, status = 200, headers: Record<string,string> = {}) {
   return Response.json(body, {status, headers:{'Cache-Control':'private, no-store, max-age=0','Pragma':'no-cache','X-Content-Type-Options':'nosniff',...headers}});
 }
-export function errorResponse(error: unknown) {
+type HandlerStage = 'runtime' | 'session.ip' | 'session.cookie' | 'session.quota' | 'convert.origin' | 'convert.input' | 'convert.prompt' | 'convert.session' | 'convert.ip' | 'convert.bot' | 'convert.quota' | 'convert.model';
+export function errorResponse(error: unknown, stage: HandlerStage = 'runtime') {
   const known = error instanceof QuotaError ? error : new QuotaError('SERVICE_UNAVAILABLE');
+  if (known.code === 'SERVICE_UNAVAILABLE') {
+    try { console.error({ event: 'chiitalk.service_unavailable', stage, errorClass: safeServerErrorClass(error) }); }
+    catch { /* Diagnostics must not change the API response. */ }
+  }
   const status = known.code === 'INVALID_INPUT' ? 400 : known.code === 'INVALID_SESSION' ? 401 : ['INVALID_ORIGIN','BOT_BLOCKED'].includes(known.code) ? 403 : ['INVALID_REQUEST_ID','DUPLICATE_REQUEST'].includes(known.code) ? 409 : known.code === 'QUOTA_EXCEEDED' ? 429 : 503;
   return jsonResponse({error:{code:known.code,message:messages[known.code]},...(known.quota ? {quota:known.quota} : {})}, status);
 }
 export function createHandlers(deps: HandlerDependencies) {
   return {
     session: async (request: Request) => {
+      let stage: HandlerStage = 'session.ip';
       try {
         const now = deps.now(); const ip = deps.ip(request);
+        stage = 'session.cookie';
         let token = requestCookie(request); let sid = await verifySession(token, deps.config.sessionSecret, now); let fresh = false;
         if (!sid) { token = await issueSession(deps.config.sessionSecret, now); sid = await verifySession(token, deps.config.sessionSecret, now); fresh = true; }
         if (!sid) throw new QuotaError('SERVICE_UNAVAILABLE');
+        stage = 'session.quota';
         const quota = await deps.quota.inspect(sid, ip, now);
         return jsonResponse({mode:deps.config.mode,quota},200,fresh ? {'Set-Cookie':sessionCookie(token,deps.config.secureCookie)} : {});
-      } catch (error) { return errorResponse(error); }
+      } catch (error) { return errorResponse(error, stage); }
     },
     convert: async (request: Request) => {
       let quota: QuotaSnapshot | undefined;
+      let stage: HandlerStage = 'convert.origin';
       try {
         const now = deps.now();
         assertOrigin(request, deps.config);
+        stage = 'convert.input';
         const input = await readInput(request);
         // Validate the complete prompt before allocating any quota.
+        stage = 'convert.prompt';
         buildPayload(input);
+        stage = 'convert.session';
         const sid = await verifySession(requestCookie(request), deps.config.sessionSecret, now);
         if (!sid) throw new QuotaError('INVALID_SESSION');
+        stage = 'convert.ip';
         const ip = deps.ip(request);
+        stage = 'convert.bot';
         try { await deps.bot(); } catch { throw new QuotaError('BOT_BLOCKED'); }
+        stage = 'convert.quota';
         quota = await deps.quota.reserve(sid, ip, request.headers.get('idempotency-key') ?? '', now);
         let result: string;
+        stage = 'convert.model';
         try { result = await deps.convert(input, request.signal); } catch { throw new QuotaError('MODEL_UNAVAILABLE', quota); }
         return jsonResponse({result,quota,mode:deps.config.mode});
-      } catch (error) { return errorResponse(error); }
+      } catch (error) { return errorResponse(error, stage); }
     },
   };
 }

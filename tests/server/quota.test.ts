@@ -1,5 +1,5 @@
-import { test, expect } from 'bun:test';
-import { QuotaService, type QuotaStore, type StoredLedger, QuotaError } from '../../src/lib/server/quota';
+import { test, expect, spyOn } from 'bun:test';
+import { QuotaService, type QuotaStore, type StoredLedger, QuotaError, safeServerErrorClass } from '../../src/lib/server/quota';
 class Store implements QuotaStore {
   record: StoredLedger | null = null; writes = 0; conflict = 0; fail = false;
   async read() { if(this.fail) throw Error('outage'); return structuredClone(this.record); }
@@ -77,4 +77,55 @@ test('monthly global cap blocks allocation 1501 across different sessions and IP
 test('ledger persists no plaintext session IP or request UUID',async()=>{
  const s=new Store(),id=key();await service(s).reserve('private-sid','198.51.100.99',id,date);
  expect(s.record!.value).not.toContain('private-sid');expect(s.record!.value).not.toContain('198.51.100.99');expect(s.record!.value).not.toContain(id.split(':')[1]);
+});
+test('unknown write failures record only the stage class and attempt, without retry',async()=>{
+ const s=new Store(),q=service(s),id=key(),logs:unknown[]=[];
+ const logger=spyOn(console,'error').mockImplementation(value=>{logs.push(value);});
+ try {
+  s.compareAndSwap=async()=>{s.writes++;const error=new Error('private-text private-result private-session 198.51.100.99 private-key');error.name='untrusted-private-key';throw error;};
+  await expect(q.reserve('private-session','198.51.100.99',id,date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  expect(s.writes).toBe(1);
+  expect(logs).toEqual([{event:'chiitalk.quota_unavailable',operation:'reserve',stage:'write',attempt:1,errorClass:'Error'}]);
+  const recorded=JSON.stringify(logs);
+  for(const privateValue of ['private-text','private-result','private-session','198.51.100.99','private-key',id])expect(recorded).not.toContain(privateValue);
+ } finally {logger.mockRestore();}
+});
+test('quota diagnostics distinguish read failures, malformed documents and exhausted CAS',async()=>{
+ const logs:unknown[]=[];const logger=spyOn(console,'error').mockImplementation(value=>{logs.push(value);});
+ try {
+  const unavailable=new Store();unavailable.fail=true;
+  await expect(service(unavailable).inspect('sid','ip',date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  const malformed=new Store();malformed.record={value:'{}',etag:'private-etag'};
+  await expect(service(malformed).reserve('sid','ip',key(),date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  const conflicts=new Store();conflicts.conflict=3;
+  await expect(service(conflicts).reserve('sid','ip',key(),date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  expect(logs).toEqual([
+   {event:'chiitalk.quota_unavailable',operation:'inspect',stage:'read',errorClass:'Error'},
+   {event:'chiitalk.quota_unavailable',operation:'reserve',stage:'parse',attempt:1,errorClass:'QuotaError'},
+   {event:'chiitalk.quota_unavailable',operation:'reserve',stage:'conflict_limit',attempt:3,errorClass:'QuotaError'},
+  ]);
+  expect(JSON.stringify(logs)).not.toContain('private-etag');
+ } finally {logger.mockRestore();}
+});
+test('diagnostic failures do not change quota outcomes or retry uncertain writes',async()=>{
+ const s=new Store(),q=service(s);const logger=spyOn(console,'error').mockImplementation(()=>{throw new Error('diagnostic failure');});
+ try {
+  s.fail=true;
+  await expect(q.inspect('sid','ip',date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  s.fail=false;
+  s.compareAndSwap=async()=>{s.writes++;throw new Error('uncertain write');};
+  await expect(q.reserve('sid','ip',key(),date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  expect(s.writes).toBe(1);
+  const conflicts=new Store();conflicts.conflict=3;
+  await expect(service(conflicts).reserve('sid','ip',key(),date)).rejects.toMatchObject({code:'SERVICE_UNAVAILABLE'});
+  expect(conflicts.writes).toBe(3);
+  const healthy=new Store();expect((await service(healthy).reserve('sid','ip',key(),date)).remaining).toBe(9);expect(healthy.writes).toBe(1);
+ } finally {logger.mockRestore();}
+});
+test('error classification never reads arbitrary error details or trusts arbitrary class names',()=>{
+ const custom=new Error('private-content');custom.name='private-class-name';
+ expect(safeServerErrorClass(custom)).toBe('Error');
+ const unreadable=new Error('private-content');Object.defineProperty(unreadable,'constructor',{get(){throw new Error('private-getter');}});
+ expect(safeServerErrorClass(unreadable)).toBe('UnknownError');
+ expect(safeServerErrorClass({name:'BlobError',message:'private-content'})).toBe('UnknownError');
 });

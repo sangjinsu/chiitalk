@@ -11,6 +11,27 @@ export type Ledger = { version: 1; month: string; total: number; days: Record<st
 export class QuotaError extends Error {
   constructor(public code: ApiErrorCode, public quota?: QuotaSnapshot) { super(code); }
 }
+type QuotaStage = 'read' | 'parse' | 'serialize' | 'write' | 'conflict_limit';
+const safeErrorClasses = new Set([
+  'Error', 'TypeError', 'RangeError', 'AbortError', 'TimeoutError', 'QuotaError',
+  'BlobError', 'BlobAccessError', 'BlobClientTokenExpiredError', 'BlobContentTypeNotAllowedError',
+  'BlobFileTooLargeError', 'BlobNotFoundError', 'BlobPathnameMismatchError', 'BlobPreconditionFailedError',
+  'BlobRequestAbortedError', 'BlobServiceNotAvailable', 'BlobServiceRateLimited',
+  'BlobStoreNotFoundError', 'BlobStoreSuspendedError', 'BlobUnknownError',
+]);
+export function safeServerErrorClass(error: unknown): string {
+  try {
+    if (!(error instanceof Error)) return 'UnknownError';
+    const constructorName = error.constructor.name;
+    return safeErrorClasses.has(constructorName) ? constructorName : safeErrorClasses.has(error.name) ? error.name : 'UnknownError';
+  } catch { return 'UnknownError'; }
+}
+function logQuotaUnavailable(operation: 'inspect' | 'reserve', stage: QuotaStage, error: unknown, attempt?: number) {
+  // Log fixed diagnostic fields only. Never include identifiers, payloads or raw errors.
+  try {
+    console.error({ event: 'chiitalk.quota_unavailable', operation, stage, ...(attempt === undefined ? {} : { attempt }), errorClass: safeServerErrorClass(error) });
+  } catch { /* Diagnostics must not change allocation or error outcomes. */ }
+}
 export function kstPeriod(now: Date) {
   const shifted = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const day = shifted.toISOString().slice(0, 10);
@@ -61,14 +82,18 @@ export class QuotaService {
     const limitReason = monthlyRemaining === 0 ? 'monthly' : sessionRemaining === 0 ? 'session' : ipRemaining === 0 ? 'ip' : null;
     return { remaining: Math.min(sessionRemaining, ipRemaining, monthlyRemaining), sessionRemaining, ipRemaining, monthlyRemaining, resetAt: limitReason === 'monthly' ? ids.monthlyReset : ids.dailyReset, period: ids.month, limitReason };
   }
-  private async load(month: string) {
+  private async load(month: string, setStage: (stage: QuotaStage) => void) {
+    setStage('read');
     const stored = await this.store.read(`quota/${month}.json`);
+    setStage('parse');
     const ledger: Ledger = stored ? parseLedger(stored.value, month) : { version: 1, month, total: 0, days: {}, requests: {} };
     return { stored, ledger };
   }
   async inspect(sid: string, ip: string, date: Date): Promise<QuotaSnapshot> {
     const ids = this.ids(sid, ip, date);
-    try { return this.snapshot((await this.load(ids.month)).ledger, ids); } catch { throw new QuotaError('SERVICE_UNAVAILABLE'); }
+    let stage: QuotaStage = 'read';
+    try { return this.snapshot((await this.load(ids.month, next => { stage = next; })).ledger, ids); }
+    catch (error) { logQuotaUnavailable('inspect', stage, error); throw new QuotaError('SERVICE_UNAVAILABLE'); }
   }
   async reserve(sid: string, ip: string, requestId: string, date: Date): Promise<QuotaSnapshot> {
     // Capture the calendar once: retries cannot cross a KST day or month.
@@ -76,9 +101,11 @@ export class QuotaService {
     const [month, uuid, extra] = requestId.split(':');
     if (month !== ids.month || !uuid || !uuidPattern.test(uuid) || extra !== undefined) throw new QuotaError('INVALID_REQUEST_ID');
     const requestKey = this.hash(`request:${ids.month}:${sid}:${uuid.toLowerCase()}`);
+    let stage: QuotaStage = 'read', currentAttempt = 0;
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
-        const { stored, ledger } = await this.load(ids.month);
+        currentAttempt = attempt + 1;
+        const { stored, ledger } = await this.load(ids.month, next => { stage = next; });
         const quota = this.snapshot(ledger, ids);
         if (ledger.requests[requestKey]) throw new QuotaError('DUPLICATE_REQUEST', quota);
         if (quota.remaining === 0) throw new QuotaError('QUOTA_EXCEEDED', quota);
@@ -88,13 +115,17 @@ export class QuotaService {
         day.ips[ids.ip] = (day.ips[ids.ip] ?? 0) + 1;
         ledger.total++;
         ledger.requests[requestKey] = ids.session;
+        stage = 'serialize';
         const value = JSON.stringify(ledger);
         if (Buffer.byteLength(value) > MAX_LEDGER_BYTES) throw new QuotaError('SERVICE_UNAVAILABLE');
         // Only a known CAS conflict may retry. Unknown writes fail closed.
+        stage = 'write';
         if (await this.store.compareAndSwap(`quota/${ids.month}.json`, value, stored?.etag ?? null)) return this.snapshot(ledger, ids);
       }
+      stage = 'conflict_limit';
       throw new QuotaError('SERVICE_UNAVAILABLE');
     } catch (error) {
+      if (!(error instanceof QuotaError) || error.code === 'SERVICE_UNAVAILABLE') logQuotaUnavailable('reserve', stage, error, currentAttempt);
       if (error instanceof QuotaError) throw error;
       throw new QuotaError('SERVICE_UNAVAILABLE');
     }
