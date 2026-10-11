@@ -1,5 +1,9 @@
 # 말투 평가 절차
 
+현재 평가 대상은 동결한 `2026-10-11-v2`다. `src/lib/character-styles.ts`의 `CHARACTER_STYLE_VERSION`과 fixture의 `promptVersion`이 일치한다. 기존 240개 입력·Case ID·category는 변경하지 않았다. 새 평가는 OpenRouter 모델 서버를 직접 호출하며 사이트의 Blob/session/IP quota를 거치지 않는다. 우선 8캐릭터×Qwen/Gemini의 16개 출력을 같은 동결 prompt로 비교하고 결과를 바탕으로 다음 버전을 개선한다. 아직 새 버전의 유료 호출이나 품질 검수 결과는 없다.
+
+기존 유료 index 0/2와 $0.000066은 이전 prompt 버전의 참고 이력이다. 보존 출력·독립 감사가 있어도 새 v2의 240쌍 평가에 섞지 않는다. 이전 v3의 실패 표본 복구/481회 계획도 이전 버전용 기록이며 새 prompt 평가 계획으로 재사용하지 않는다. 새 run은 prompt 버전과 source SHA를 구분해 기록하고 `humanScores`는 미평가로 유지한다.
+
 평가 입력은 `data/character-evaluation-inputs.json`의 합성 한국어 240개(8캐릭터 × 30)다. 실제 사용자 입력이나 공식 대사가 아니다. 기쁨·슬픔·두려움·요청·자랑·감사·피로·거절 각 3개, 중립 2개, 혼합감정 1개, 줄바꿈/이모지 1개, prompt injection 2개를 캐릭터마다 평가한다.
 
 ```sh
@@ -45,8 +49,14 @@ Qwen `qwen/qwen3.5-9b`와 Gemini `google/gemini-2.5-flash-lite`를 같은 스타
 
 그 뒤 index 2의 Qwen 유료 요청에서 Chat 출력 `와아…! 응…!`, reasoning own number 0·cost $0.00003288을 확보했지만 Generation HTTP/body/boundedJSON 감사 단계에서 실패해 즉시 halted가 됐다. 실패 당시 HTTP status는 기록되지 않아 404나 eventual consistency로 단정할 수 없다. 후속 readonly Generation GET은 200이며 native reasoning own number 0·native prompt/completion 398/8·cost $0.00003288을 확인했다. 해당 행은 `evaluation-output/pilot-2026-10-11.json`에 error로 보존한다.
 
-총 유료 POST는 2회, 기술적 평가 성공은 0건, 확인한 총 실비는 $0.000066이다. 두 번째 실패 이후 추가 모델 호출과 추가 ACK는 각각 0회이고 평가 halted를 유지한다. 신규 16건 파일럿과 전체 240입력×2모델 비교는 완료되지 않았다. 원본 앱은 Generation 감사 GET에 의존하지 않으므로 임시 평가기 실패가 기술 candidate 배포를 막지는 않는다. 추가 실행 계획을 완료 실적으로 계산하거나 error 행을 성공으로 바꾸지 않는다.
+Benchmark 유료 POST는 2회, 기술적 평가 성공은 0건, 확인한 Benchmark 실비는 $0.000066이다. 두 번째 실패 이후 추가 평가 호출과 추가 ACK는 각각 0회이고 평가 halted를 유지한다. 이 수치는 사용자의 Production 변환이나 계정 전체 사용량을 포함하지 않는다. 신규 16건 파일럿과 전체 240입력×2모델 비교는 완료되지 않았다. 원본 앱은 Generation 감사 GET에 의존하지 않으므로 임시 평가기 실패가 기술 candidate 배포를 막지는 않는다. 추가 실행 계획을 완료 실적으로 계산하거나 error 행을 성공으로 바꾸지 않는다.
 
 현재 확보한 출력은 두 번째 실패 행의 한 개뿐이며 16건 완료 파일이 아니다. 파일럿을 완성하고 완료 확인을 받은 뒤 입력·출력·캐릭터 근거를 대조하는 검수 절차는 유지한다. 여섯 metric과 중대 부정/감정 반전·사실 추가·prompt leak의 근거는 별도 `agent-assessed` 보고서에 기록하고 `humanScores: null`은 유지한다. 캐릭터당 입력 한 개×모델 두 개의 소량 표본으로 캐릭터당 30개 전체 품질을 결론 내리지 않는다. 첫 실패는 출력 누락으로 미평가, 두 번째는 감사 실패로 기록하며 현재 점수나 품질 통과 결론은 작성하지 않았다.
 
-사람 채점·한국어 더빙 대조는 미실행이다. 따라서 모델별 말투 품질, latency, 비용 우열을 주장할 수 없다. [OpenRouter 공식 API response/usage 계약](https://openrouter.ai/docs/api_reference/overview)을 기준으로 metrics 필드를 작성했다.
+이전 prompt용 private v3는 deadline 수정 후 Architect 승인과 57 tests·1,009 assertions/build exit 0을 확인했다. 미배포·두 번째 ACK 미실행·추가 유료 0이며 새 v2 평가는 이 임시 배포 경로를 사용하지 않는다.
+
+v3의 표본 복구 설계는 기존 index 2 error를 불변으로 두고 보존 Chat과 같은 generation의 독립 감사에 별도 `auditVerified`/`qualityEligible` 근거를 연결하는 것이다. 이는 원 error를 성공으로 바꾸는 것이 아니다. 출력 유실 case 01의 pair와 미호출 Gemini index 1을 평가 표본에서 제외하고 immutable case 31 pair(indices 480/481)를 추가하는 권고다. 계획상 유료 상한은 481회, usable 표본은 480개=240 pairs다. 새 파일럿 16회는 indices 4/5와 다른 7캐릭터 첫 pair이며 그 뒤 잔여 463회에는 index 3이 포함된다. 원본 CLI의 480회 제한과 별도 v3 계획을 구분하며 아직 실행 완료나 품질 eligible 확정으로 기록하지 않는다.
+
+운영 Blob 잔여량은 별도 서비스 운영 정보다. CLI billing/metric으로 확인하지 못해 [팀 Observability → Blob](https://vercel.com/sangjinsus-projects-7fe3f5cc/~/observability/blob)의 실제 사용량 응답을 기다리지만, Blob을 쓰지 않는 직접 모델 평가의 선행 조건은 아니다. 모델 평가에는 inference key의 실제 한도·사용 가능한 credit·모델 가격/usage 확인을 적용한다. 일반 Chrome의 Production live 변환은 사용자 직접 성공 확인이며 Benchmark 결과와 별개다.
+
+사람 채점·한국어 음성 대조는 미실행이다. AniBox 공식 업로드 245·166화의 YouTube script UI 후보는 확보했지만 화자/작성·검수 주체가 불명확하고 호칭 오탈자가 있어 exact 한국어 규칙의 확정 근거로 쓰지 않는다. 따라서 모델별 말투 품질, latency, 비용 우열을 주장할 수 없다. [OpenRouter 공식 API response/usage 계약](https://openrouter.ai/docs/api_reference/overview)을 기준으로 metrics 필드를 작성했다.

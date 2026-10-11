@@ -10,21 +10,13 @@ export default function Home() {
           <span className="brand-mark" aria-hidden="true"><i /><i /></span>
           <span>치이톡<span className="brand-english">chiitalk</span></span>
         </Link>
-        <span className="header-note">조금 다른 말투, 같은 마음</span>
+        <span className="header-note">먼작귀 친구들의 말투로</span>
       </header>
 
       <main>
         <section className="intro" aria-labelledby="page-title">
-          <div className="intro-copy">
-            <h1 id="page-title">내 문장에<br />작은 성격 하나.</h1>
-            <p>하고 싶은 말은 그대로.<br className="mobile-break" /> 말투는 치이카와 친구들처럼 바꿔봐요.</p>
-          </div>
-          <div className="intro-sticker" aria-hidden="true">
-            <span className="sticker-spark spark-one">✦</span>
-            <span className="sticker-spark spark-two">✧</span>
-            <div className="sticker-face"><span /><span /><i /></div>
-            <span className="sticker-note">마음을 담아<br />톡!</span>
-          </div>
+          <h1 id="page-title">이 말을, 그 친구라면?</h1>
+          <p>친구를 고르고 짧은 문장을 적어보세요.</p>
         </section>
 
         <ToneConverter />

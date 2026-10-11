@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "synthetic": true,
   "source": "Newly authored Korean evaluation fixtures; no official dialogue or user data.",
   "cases": [
@@ -3363,5 +3363,6 @@
         "short_nonverbal"
       ]
     }
-  ]
+  ],
+  "promptVersion": "2026-10-11-v2"
 }

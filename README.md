@@ -2,7 +2,9 @@
 
 한국어 문장을 치이카와, 하치와레, 우사기, 쿠리만쥬, 모몽가, 랏코, 시사, 후루혼야 분위기로 바꾸는 웹앱입니다. 캐릭터 설명과 예시는 공식 자료에 기반해 새로 만든 한국어 재해석입니다. 비언어 캐릭터는 문장의 상세 정보보다 감정을 작은 소리로 전합니다.
 
-[READY 체험 Preview](https://chiitalk-f3bsktfwm-sangjinsus-projects-7fe3f5cc.vercel.app)는 Vercel 로그인 보호를 유지하며 mock 모드로 동작합니다. 실제 Production 출시 URL은 아직 준비되지 않았습니다.
+작업본 말투 v2(`2026-10-11-v2`)는 64개 예시를 유지하며 발화 의도·혼합 감정·상황별 어미를 보강했습니다. 아직 새 버전의 실제 모델 품질 검증은 없습니다. 사이트 운영 경로를 거치지 않는 OpenRouter 직접 8캐릭터×2모델 비교를 먼저 수행하며 이전 prompt의 유료 결과와 합산하지 않습니다.
+
+[공개 Production](https://chiitalk.vercel.app)이 Git 배포로 READY 상태이며 익명 접근 200을 확인했습니다. 일반 Chrome에서 실제 변환 성공은 사용자 직접 확인 결과입니다. [체험 Preview](https://chiitalk-f3bsktfwm-sangjinsus-projects-7fe3f5cc.vercel.app)는 Vercel 로그인 보호를 유지하며 mock 모드로 동작합니다. 전체 말투 품질 검수는 미완료입니다.
 
 ## 로컬 실행
 
@@ -24,7 +26,7 @@ bun run build
 bun scripts/evaluate-tones.ts
 ```
 
-마지막 명령은 240개 합성 평가 입력의 dry-run이며 유료 요청은 0회입니다. 사람의 말투 품질 평가 결과는 아직 없습니다.
+마지막 명령은 240개 합성 평가 입력의 dry-run이며 유료 요청은 0회입니다. 새 말투 v2의 의도 선택/경계 검사 포함 41 tests·503 assertions와 앱/tools typecheck·lint가 통과했으며 build는 통합 검증에서 확인합니다. 사람의 말투 품질 평가 결과는 아직 없습니다.
 
 `bun run typecheck`는 앱(`tsconfig.json`)과 운영 CLI·tests(`tsconfig.tools.json`)를 모두 검사합니다. `bun run typecheck:app`과 `bun run typecheck:tools`로 따로 실행할 수도 있습니다. Next build는 `src`, `next.config.ts`, Next 생성 타입만 검사하므로 배포에서 제외한 평가 script/fixture에 의존하지 않습니다. 운영 CLI의 fixture import와 strict 검사도 별도 검사에 유지하며 TypeScript build 오류를 무시하지 않습니다. 로컬 평가 결과 `evaluation-output/`은 Git에서 제외합니다.
 
@@ -60,17 +62,21 @@ quota를 먼저 예약한 뒤 모델을 한 번 호출합니다. 300 Unicode cod
 
 단일 Blob은 모든 요청을 직렬 경쟁시키므로 동시성이 높으면 known CAS 3시도 뒤 잠시 오류가 날 수 있습니다. `@vercel/blob` 2.8.1 내부 소스에서 `VERCEL_BLOB_RETRIES=0` 동작을 확인해 SDK 자동 retry를 끄지만 공개 API 계약은 아닙니다. SDK를 업데이트할 때 재검증해야 합니다. Blob Advanced operations의 포함량/과금은 별도 제한이며 경쟁 요청·session 조회로 월 1,500 호출 이전에 포함량을 쓸 수 있습니다. LLM 예산과 저장소 비용은 별개입니다.
 
+Blob CLI의 billing/metric 조회에서 실제 잔여량을 확인하지 못했습니다. 팀의 [Observability → Blob](https://vercel.com/sangjinsus-projects-7fe3f5cc/~/observability/blob)에서 이번 달 Advanced Operations 사용량을 확인합니다. 월 무료 포함량 2,000회와 실제 남은 수치는 구분하며, 현재 사용자 Usage 숫자 응답 전까지 잔여량은 미확인입니다. Blob을 쓰지 않는 직접 모델 평가는 운영 quota와 분리합니다.
+
 Cron `/api/cron/cleanup`은 bearer `CRON_SECRET`를 요구하고 매일 16:00 UTC(01:00 KST)에 실행하도록 설정되어 있습니다. 현재·이전 달 ledger를 유지하고 더 오래된 월 문서만 삭제합니다. 자동 key 한도 UTC와 앱 quota KST의 월 경계는 서로 다릅니다.
 
 ## 현재 검증 범위
 
-provider 수정 후 fresh 기본 `bun run test`는 34 pass / 0 fail / 93 expect calls, 앱·tools typecheck와 lint·build는 모두 exit 0으로 통과했습니다. Architect의 provider 회귀 검사도 6 pass / 22 assertions로 통과했고 원본 Git 기술 candidate 배포를 APPROVED로 판정했습니다. 월간 1,500회 스트레스 case 한 개의 test timeout만 15초이며 제품의 로직과 한도는 유지합니다. 임시 v2 검증 소스는 별도 35 tests / 130 assertions와 build·typecheck·lint를 통과했습니다. localhost:3000에서 375px 화면의 가로 overflow 없음, 캐릭터 8개 2열 배치, console error 0개를 확인했습니다. 기술 candidate 승인과 말투 품질·공개 출시 검증은 구분합니다. 상세 결과는 [진행 기록](docs/implementation-progress.md)에 남깁니다.
+provider 수정 후 기본 `bun run test`는 34 pass / 0 fail / 93 assertions, 앱·tools typecheck와 lint·build는 모두 exit 0으로 통과했습니다. Architect의 provider 회귀 검사도 6 pass / 22 assertions로 통과했고 원본 Git 기술 candidate 배포를 APPROVED로 판정했습니다. 월간 1,500회 스트레스 case 한 개의 test timeout만 15초이며 제품의 로직과 한도는 유지합니다. 기술 배포 확인과 말투 품질 검증은 구분합니다. 상세 결과는 [진행 기록](docs/implementation-progress.md)에 남깁니다.
 
-READY mock Preview의 실제 `GET /api/session`에서 200·demo·남은 횟수 10, `POST /api/convert`에서 200·demo·남은 횟수 9를 확인했습니다. 로그인 보호된 임시 Production proof에서는 `GET /api/session`의 200·live·no-store 응답과 Secure/HttpOnly/SameSite=Lax cookie를 확인했습니다. Origin·session·body·idempotency 조건을 갖춰도 BotID 없는 convert 요청은 403 `BOT_BLOCKED`로 거절됐으며 session 10/IP 30/month 1,500 quota는 차감되지 않았습니다. 실제 인간 요청의 BotID 통과는 아직 확인하지 못했습니다. 임시 proof는 공개 launch나 최종 Git release가 아니며 정리 완료 증거를 기다리고 있습니다.
+공개 Production의 375px 화면에서 캐릭터 8개 2열·가로 overflow 0과 BotID SDK `c.js` 200을 확인했습니다. gstack 브라우저의 변환 요청 1회는 403 `BOT_BLOCKED`였고 remaining 10을 유지했으며 quota 예약·모델 호출·자동 재시도는 모두 0회였습니다. 일반 Chrome의 Production live 변환·정상 사용자 BotID 통과는 사용자가 변환 성공을 직접 확인했습니다. 사용자 확인과 자동화 브라우저의 차단 검증을 구분합니다. 실제 clipboard 복사는 사용자 확인이 없어 미검증 상태를 유지합니다.
 
-임시 평가의 유료 POST는 총 2회이며 두 행 모두 error로 보존되어 기술적 평가 성공은 0건입니다. 첫 index 0은 출력이 유실됐고 manual ACK를 완료한 뒤 failed-reviewed 상태와 중복 차단을 유지합니다. 두 번째 index 2의 Qwen Chat 출력은 `와아…! 응…!`였지만 Generation 감사 단계에서 실패해 즉시 중단했습니다. 각 독립 Generation GET에서 native reasoning 0과 실제 비용 $0.00003312/$0.00003288을 확인했으며 총 실비는 $0.000066입니다. 실패 당시 HTTP status를 기록하지 않아 404나 eventual consistency가 원인이라고 단정하지 않습니다. 이후 추가 모델 호출·ACK는 없고 평가 halted 상태입니다. 원본 앱은 Generation 감사 GET에 의존하지 않으므로 임시 평가기 실패가 승인된 기술 candidate 배포를 막지는 않습니다. 16건 파일럿·전체 품질 비교·사람 채점·한국어 더빙 검수는 완료되지 않았습니다. 자세한 감사 범위는 [평가 절차](docs/evaluation.md), 공식 원작 본문과 파생 자료의 구분은 [말투 coverage](docs/character-style-guide.md)에 기록했습니다.
+localhost demo에서는 변환 200·10→9·모델 호출 0, desktop 1280px/mobile 375px overflow 0, ArrowRight 캐릭터 선택·Enter 개행·JS error 0을 확인했습니다. 실제 clipboard는 headless 권한 실패로 확인하지 못했으며 mock `writeText`에 전달한 결과 문자열과 성공 feedback만 확인했습니다. 기존 mock Preview API도 demo 10→9를 확인했습니다. 임시 Production proof의 live session·no-store·Secure/HttpOnly/SameSite=Lax cookie와 BotID 차단 시 quota 미차감은 별도 확인 기록입니다.
 
-GitHub `sangjinsu/chiitalk`의 main push와 Vercel repo/main 연결을 확인했습니다. 현재 Git HEAD와 origin/main은 `42945a0…`이며 승인된 기술 candidate의 신규 push 전입니다. 다음 main push 후 Git Production build와 실제 배포를 확인해야 합니다. docs-only commit의 배포 skip marker는 공식 지원을 확인하지 못했습니다. [Ignored Build Step](https://vercel.com/docs/project-configuration/project-settings#ignored-build-step)은 별도 설정이 필요하며 이번에 변경하지 않았습니다.
+Benchmark의 임시 평가 유료 POST는 총 2회이며 두 행 모두 error로 보존되어 기술적 평가 성공은 0건입니다. 이 횟수와 실비는 사용자의 Production 변환을 포함한 계정 전체 사용량이 아닙니다. 첫 index 0은 출력이 유실됐고 manual ACK를 완료한 뒤 failed-reviewed 상태와 중복 차단을 유지합니다. 두 번째 index 2의 Qwen Chat 출력은 `와아…! 응…!`였지만 Generation 감사 단계에서 실패해 즉시 중단했습니다. 각 독립 Generation GET에서 native reasoning 0과 실제 비용 $0.00003312/$0.00003288을 확인했으며 Benchmark 총 실비는 $0.000066입니다. 실패 당시 HTTP status를 기록하지 않아 404나 eventual consistency가 원인이라고 단정하지 않습니다. 이후 추가 Benchmark 호출·ACK는 없고 평가 halted 상태입니다. 이전 prompt용 private v3는 deadline 수정 후 Architect 승인·57 tests/1,009 assertions/build exit 0을 확인했지만 미배포·두 번째 ACK 미실행·추가 유료 0입니다. 새 v2 평가는 OpenRouter 직접 호출로 분리합니다. 원본 앱은 Generation 감사 GET에 의존하지 않습니다. 16건 파일럿·전체 품질 비교·사람 채점·한국어 더빙 검수는 미완료입니다. 자세한 감사 범위는 [평가 절차](docs/evaluation.md), 공식 원작 본문과 파생 자료의 구분은 [말투 coverage](docs/character-style-guide.md)에 기록했습니다.
+
+GitHub `sangjinsu/chiitalk`의 main/origin SHA `9978f47c0cf3872aef542190e1ecbf60be612c1d`에서 Git-triggered Production `dpl_6yG7DBFXkqwnbp7mDBiGSv2oxMCU`가 READY입니다. 공개 alias와 배포 UID 일치 및 익명 200을 확인했습니다. 담당자가 만든 임시 배포 4개는 삭제 exit 0·인증 목록 잔존 0·각 raw URL 404를 확인했고, 임시 token/env/header 파일과 `.env.local`은 없습니다. Production 환경변수는 기존 6개만 남고 원본에 verification route는 없습니다. docs-only skip marker나 별도 Ignored Build Step을 설정하지 않았습니다.
 
 프로젝트 연결 시 CLI가 OIDC용 임시 `.env.local`을 자동 생성했던 사실을 확인해 기존의 로컬 env 파일 0개 주장을 정정했습니다. 본문을 읽지 않고 해당 임시 파일을 삭제했으며 현재 잔존 파일이 없습니다. 업로드에서는 `.env*`를 제외했습니다. Production 변수는 `vercel env run`이 실행 process에 주입했습니다.
 
