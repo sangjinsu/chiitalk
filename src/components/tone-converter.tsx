@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { CHARACTERS, getCharacter, type CharacterId } from "@/lib/characters";
 import type { ApiErrorResponse, ConvertRequest, ConvertResponse, SessionResponse } from "@/lib/contracts";
-import { CharacterFace } from "@/components/character-face";
 
 const MAX_CHARACTERS = 300;
 const EXAMPLES = [
@@ -221,10 +220,9 @@ export function ToneConverter() {
         <p className="section-hint">말투도, 표현하는 방식도 조금씩 달라요.</p>
         <div className="character-grid">
           {CHARACTERS.map((friend) => (
-            <label key={friend.id} className={`character-option ${characterId === friend.id ? "is-selected" : ""}`} style={{ "--character-tint": friend.tint } as CSSProperties}>
+            <label key={friend.id} className={`character-option ${characterId === friend.id ? "is-selected" : ""}`}>
               <input type="radio" name="character" value={friend.id} checked={characterId === friend.id} onChange={() => chooseCharacter(friend.id)} />
-              <span className="character-avatar"><CharacterFace id={friend.id} /></span>
-              <span className="character-copy"><strong>{friend.name}</strong><span>{friend.description}</span></span>
+              <strong className="character-name">{friend.name}</strong>
               <span className="selection-check" aria-hidden="true"><Icon name="check" /></span>
             </label>
           ))}
@@ -263,7 +261,7 @@ export function ToneConverter() {
         <section className={`result-panel ${result ? "has-result" : ""}`} aria-labelledby="result-title" aria-busy={busy}>
           <div className="panel-heading"><h2 id="result-title"><span className="step-number">3</span>이렇게 전해봐요</h2></div>
           <div className="result-live" aria-live="polite" aria-atomic="true">
-            {busy ? <div className="empty-result"><CharacterFace id={characterId} /><span className="empty-bubble is-loading" aria-hidden="true"><i /><i /><i /></span><p>{character.name}의 말투를 담고 있어요.</p></div> : result ? <div className="result-content"><div className="result-speaker"><CharacterFace id={result.characterId} /><strong className="result-character">{getCharacter(result.characterId)?.name}</strong></div><div className="speech-bubble" style={{ "--character-tint": getCharacter(result.characterId).tint } as CSSProperties}><p className="result-text">{result.result}</p></div>{result.mode === "demo" && <p className="preview-note">미리보기 예시예요. 실제 변환에서는 입력한 문장에 맞춰 말투를 담아요.</p>}</div> : <div className="empty-result"><CharacterFace id={characterId} /><p>{character.name}라면 뭐라고 할까요?</p><span>문장을 적고 말투로 바꾸기를 눌러주세요.</span></div>}
+            {busy ? <div className="empty-result"><span className="empty-bubble is-loading" aria-hidden="true"><i /><i /><i /></span><p>{character.name}의 말투를 담고 있어요.</p></div> : result ? <div className="result-content"><div className="result-speaker"><strong className="result-character">{getCharacter(result.characterId)?.name}</strong></div><div className="speech-bubble" style={{ "--character-tint": getCharacter(result.characterId).tint } as CSSProperties}><p className="result-text">{result.result}</p></div>{result.mode === "demo" && <p className="preview-note">미리보기 예시예요. 실제 변환에서는 입력한 문장에 맞춰 말투를 담아요.</p>}</div> : <div className="empty-result"><p>{character.name}라면 뭐라고 할까요?</p><span>문장을 적고 말투로 바꾸기를 눌러주세요.</span></div>}
           </div>
           {result && <div className="result-actions"><button className="copy-button" type="button" onClick={() => { void copyResult(); }}><Icon name={copyStatus === "copied" ? "check" : "copy"} />{copyStatus === "copied" ? "복사했어요" : "문장 복사"}</button><button className="reset-button" type="button" onClick={reset}><Icon name="reset" />새 문장</button></div>}
           <p className="copy-feedback" role="status">{copyStatus === "copied" ? "변환한 문장을 클립보드에 복사했어요." : copyStatus === "failed" ? "복사하지 못했어요. 위 문장을 직접 선택해 복사해 주세요." : ""}</p>
