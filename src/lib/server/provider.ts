@@ -23,7 +23,9 @@ export async function callProvider(payload: ReturnType<typeof buildPayload>, key
     if (!response.ok || !response.body) throw new QuotaError('MODEL_UNAVAILABLE');
     const result = JSON.parse(await readBoundedStream(response.body, 65536));
     const message = result?.choices?.[0]?.message;
-    if (typeof message?.content !== 'string' || !message.content.trim() || message.tool_calls || message.function_call || result.error || Buffer.byteLength(message.content) > 8192) throw new QuotaError('MODEL_UNAVAILABLE');
+    const toolCalls = message?.tool_calls;
+    const invalidToolCalls = toolCalls != null && (!Array.isArray(toolCalls) || toolCalls.length > 0);
+    if (typeof message?.content !== 'string' || !message.content.trim() || invalidToolCalls || message.function_call || result.error || Buffer.byteLength(message.content) > 8192) throw new QuotaError('MODEL_UNAVAILABLE');
     return message.content.trim();
   } catch { throw new QuotaError('MODEL_UNAVAILABLE'); }
 }

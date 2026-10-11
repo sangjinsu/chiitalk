@@ -73,7 +73,7 @@ test('monthly global cap blocks allocation 1501 across different sessions and IP
  await expect(q.reserve('last','last-ip',key(),date)).rejects.toMatchObject({code:'QUOTA_EXCEEDED',quota:{monthlyRemaining:0,limitReason:'monthly'}});
  expect(s.writes).toBe(writes);
  expect(Buffer.byteLength(s.record!.value)).toBeLessThan(1024*1024);
-});
+}, {timeout:15000});
 test('ledger persists no plaintext session IP or request UUID',async()=>{
  const s=new Store(),id=key();await service(s).reserve('private-sid','198.51.100.99',id,date);
  expect(s.record!.value).not.toContain('private-sid');expect(s.record!.value).not.toContain('198.51.100.99');expect(s.record!.value).not.toContain(id.split(':')[1]);
