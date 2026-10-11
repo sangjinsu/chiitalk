@@ -1,81 +1,69 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import fixtures from "../data/character-evaluation-inputs.json";
 import { characters, isCharacterId } from "../src/lib/characters";
-import { getCharacterStyle } from "../src/lib/character-styles";
+import { CHARACTER_STYLE_VERSION, getCharacterStyle } from "../src/lib/character-styles";
 import { buildPayload } from "../src/lib/server/provider";
+import { MODELS, runEvaluation, type EvaluationJob, type Provenance } from "./evaluation-support";
 
-type Message = { role: "system" | "user" | "assistant"; content: string };
-type EvaluationCase = (typeof fixtures.cases)[number];
-const models = [
-  { id: "qwen/qwen3.5-9b", promptPrice: 0.10, completionPrice: 0.15 },
-  { id: "google/gemini-2.5-flash-lite", promptPrice: 0.10, completionPrice: 0.40 },
-] as const;
-
-function messagesFor(testCase: EvaluationCase): Message[] {
-  if (!isCharacterId(testCase.characterId)) throw new Error(`Invalid fixture character: ${testCase.id}`);
-  return buildPayload({ characterId: testCase.characterId, text: testCase.text }).messages;
+class CliError extends Error {}
+function optionsFor(args: string[]) {
+  const options = { live: false, dry: false, pilot: false, limit: undefined as number | undefined, out: undefined as string | undefined };
+  const seen = new Set<string>();
+  for (const argument of args) {
+    const name = argument.split("=", 1)[0]!;
+    if (seen.has(name)) throw new CliError("Duplicate CLI option."); seen.add(name);
+    if (argument === "--live") options.live = true;
+    else if (argument === "--dry" || argument === "--dry-run") options.dry = true;
+    else if (argument === "--pilot") options.pilot = true;
+    else if (argument.startsWith("--limit=")) options.limit = Number(argument.slice(8));
+    else if (argument.startsWith("--out=") && argument.slice(6)) options.out = argument.slice(6);
+    else throw new CliError("Unknown or incomplete CLI option.");
+  }
+  if (options.live && options.dry) throw new CliError("--live and --dry are mutually exclusive.");
+  const limit = options.limit ?? (options.pilot ? 16 : 480);
+  if (!Number.isInteger(limit) || limit < 1 || limit > (options.pilot ? 16 : 480)) throw new CliError("--limit is outside the fixed request cap.");
+  return { ...options, limit };
 }
-
-function validateFixtures(): void {
-  if (fixtures.cases.length !== 240 || new Set(fixtures.cases.map((item) => item.id)).size !== 240) throw new Error("Expected 240 unique evaluation cases.");
+export function buildEvaluationJobs(args: string[]): { options: ReturnType<typeof optionsFor>; jobs: EvaluationJob[] } {
+  const options = optionsFor(args);
+  if (fixtures.promptVersion !== CHARACTER_STYLE_VERSION) throw new CliError("Fixture and source prompt versions differ.");
+  if (fixtures.cases.length !== 240 || new Set(fixtures.cases.map((item) => item.id)).size !== 240) throw new CliError("Expected 240 unique synthetic cases.");
   for (const character of characters) {
-    if (fixtures.cases.filter((item) => item.characterId === character.id).length !== 30) throw new Error(`Expected 30 cases: ${character.id}`);
-    if (getCharacterStyle(character.id).examples.length !== 8) throw new Error(`Expected 8 examples: ${character.id}`);
+    if (fixtures.cases.filter((item) => item.characterId === character.id).length !== 30 || getCharacterStyle(character.id).examples.length !== 8) throw new CliError("Character fixture or example count differs.");
   }
-  for (const testCase of fixtures.cases) {
-    if (!testCase.text.trim() || Array.from(testCase.text).length > 300) throw new Error(`Invalid fixture input: ${testCase.id}`);
-    if (Buffer.byteLength(JSON.stringify(messagesFor(testCase)), "utf8") > 8192) throw new Error(`Prompt exceeds 8 KiB: ${testCase.id}`);
-  }
+  const all = fixtures.cases.flatMap((item, caseIndex): EvaluationJob[] => {
+    if (!isCharacterId(item.characterId) || !item.text.trim() || Array.from(item.text).length > 300) throw new CliError("Invalid synthetic fixture input.");
+    const messages = buildPayload({ characterId: item.characterId, text: item.text }).messages;
+    if (Buffer.byteLength(JSON.stringify(messages), "utf8") > 8192) throw new CliError("Prompt exceeds 8 KiB.");
+    return MODELS.map((model, modelIndex) => ({ index: caseIndex * 2 + modelIndex, caseId: item.id, characterId: item.characterId, category: item.category, input: item.text, expectedMode: item.expectedMode === "vocal" ? "vocal" : "verbal", model, messages }));
+  });
+  const firstCases = new Set(characters.map((character) => fixtures.cases.find((item) => item.characterId === character.id)!.id));
+  const jobs = (options.pilot ? all.filter((job) => firstCases.has(job.caseId)) : all).slice(0, options.limit);
+  return { options, jobs };
 }
-
-function numeric(value: unknown): number | null { return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null; }
-
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const live = args.includes("--live");
-  const limitArg = args.find((argument) => argument.startsWith("--limit="));
-  const limit = limitArg ? Number(limitArg.slice(8)) : 480;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 480) throw new Error("--limit must be an integer between 1 and 480.");
-  const unknown = args.filter((argument) => argument !== "--live" && !argument.startsWith("--limit=") && !argument.startsWith("--out="));
-  if (unknown.length) throw new Error(`Unknown option: ${unknown.join(", ")}`);
-  validateFixtures();
-  const jobs = fixtures.cases.flatMap((testCase) => models.map((model) => ({ testCase, model }))).slice(0, limit);
-  if (!live) {
-    console.log(JSON.stringify({ mode: "dry-run", cases: fixtures.cases.length, characters: characters.length, models: models.map((model) => model.id), plannedRequests: jobs.length, paidRequests: 0, fixtureValidation: "passed", qualityValidated: false }, null, 2));
-    return;
-  }
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key) throw new Error("OPENROUTER_API_KEY is required for --live. Never place keys in source or output files.");
-  const outArg = args.find((argument) => argument.startsWith("--out="));
-  const outPath = resolve(outArg ? outArg.slice(6) : `evaluation-output/${new Date().toISOString().replaceAll(":", "-")}.json`);
-  await mkdir(resolve(outPath, ".."), { recursive: true });
-  const rows: Record<string, unknown>[] = [];
-  console.log(`Live evaluation: at most ${jobs.length} paid requests; sequential, 30s timeout, no retry.`);
-  for (const { testCase, model } of jobs) {
-    const started = performance.now();
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST", signal: AbortSignal.timeout(30_000),
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: model.id, messages: messagesFor(testCase), max_tokens: 256, stream: false, reasoning: { enabled: false }, provider: { require_parameters: true, allow_fallbacks: false, max_price: { prompt: model.promptPrice, completion: model.completionPrice, request: 0 } } }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      const choice = payload?.choices?.[0];
-      if (typeof choice?.message?.content !== "string" || !choice.message.content.trim()) throw new Error("Missing response text");
-      if (payload.model !== model.id) throw new Error("Unexpected response model");
-      const usage = payload.usage;
-      rows.push({ caseId: testCase.id, characterId: testCase.characterId, category: testCase.category, model: model.id, status: "ok", input: testCase.text, output: choice.message.content, latencyMs: Math.round(performance.now() - started), finishReason: choice.finish_reason ?? null, promptTokens: numeric(usage?.prompt_tokens), completionTokens: numeric(usage?.completion_tokens), totalTokens: numeric(usage?.total_tokens), reasoningTokens: numeric(usage?.completion_tokens_details?.reasoning_tokens), costUsd: numeric(usage?.cost), humanScores: { fidelity: null, emotionPolarity: null, semanticPreservation: testCase.expectedMode === "vocal" ? "not-applicable" : null, naturalKorean: null, noInventedFacts: null, noPromptLeak: null }, notes: "" });
-    } catch (error) {
-      // Store only controlled error labels, never vendor bodies or credentials.
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const safeError = /^(HTTP \d{3}|Missing response text|Unexpected response model)$/.test(message) ? message : "Request failed or timed out";
-      rows.push({ caseId: testCase.id, characterId: testCase.characterId, model: model.id, status: "error", error: safeError, latencyMs: Math.round(performance.now() - started) });
-    }
-    await writeFile(outPath, JSON.stringify({ generatedAt: new Date().toISOString(), syntheticInputsOnly: true, mode: "live", maxRequests: jobs.length, completedRequests: rows.length, qualityValidated: false, rows }, null, 2) + "\n");
-  }
-  console.log(`Saved ${rows.length} evaluation rows to ${outPath}. Human review remains required.`);
+async function provenance(): Promise<Provenance> {
+  const hash = async (path: string) => createHash("sha256").update(await readFile(new URL(path, import.meta.url))).digest("hex");
+  return { promptVersion: CHARACTER_STYLE_VERSION, fixturePromptVersion: fixtures.promptVersion, fixtureVersion: fixtures.version, styleSha256: await hash("../src/lib/character-styles.ts"), fixtureSha256: await hash("../data/character-evaluation-inputs.json") };
 }
-
-await main();
+export async function runCli(args: string[], dependencies?: { key?: string; fetcher?: Parameters<typeof runEvaluation>[0]["fetcher"]; log?: (line: string) => void }): Promise<number> {
+  const log = dependencies?.log ?? console.log;
+  const { options, jobs } = buildEvaluationJobs(args);
+  const source = await provenance();
+  if (!options.live) {
+    log(JSON.stringify({ mode: "dry-run", cases: 240, characters: 8, models: MODELS.map((model) => model.id), plannedRequests: jobs.length, paidRequests: 0, fixtureValidation: "passed", qualityValidated: false, ...source }, null, 2));
+    return 0;
+  }
+  const key = dependencies ? dependencies.key : process.env.OPENROUTER_API_KEY;
+  if (!key) throw new CliError("OPENROUTER_API_KEY is required for --live; no request was started.");
+  const outPath = resolve(options.out ?? `evaluation-output/${source.promptVersion}-${source.styleSha256.slice(0, 12)}-${source.fixtureSha256.slice(0, 12)}.json`);
+  const result = await runEvaluation({ outPath, key, jobs, provenance: source, fetcher: dependencies?.fetcher });
+  log(`Model POST attempts: ${result.modelPostAttempts}; language successes: ${result.languageSuccesses}; audit pending: ${result.auditPending}; verified audits: ${result.rows.filter((row) => row.auditStatus === "verified").length}; halted: ${result.halted}.`);
+  log(`Synthetic results: ${outPath}. Quality scores remain unevaluated.`);
+  return result.halted ? 1 : 0;
+}
+if (import.meta.main) {
+  try { process.exitCode = await runCli(process.argv.slice(2)); }
+  catch (error) { console.error(error instanceof CliError ? error.message : "Evaluation stopped before further requests. Existing output is never replaced; inspect the pending/error journal. No automatic retry."); process.exitCode = 1; }
+}
