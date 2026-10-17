@@ -1,47 +1,66 @@
 # 말투 평가 절차
 
-현재 평가 대상은 동결한 `2026-10-11-v2`다. `src/lib/character-styles.ts`의 `CHARACTER_STYLE_VERSION`과 fixture의 `promptVersion`이 일치한다. 기존 240개 입력·Case ID·category는 변경하지 않았다. 새 평가는 OpenRouter 모델 서버를 직접 호출하며 사이트의 Blob/session/IP quota를 거치지 않는다. 우선 8캐릭터×Qwen/Gemini의 16개 출력을 같은 동결 prompt로 비교하고 결과를 바탕으로 다음 버전을 개선한다. 아직 새 버전의 유료 호출이나 품질 검수 결과는 없다.
+현재 source는 `2026-10-12-v5-momonga`, 기본 모델은 Haiku 5.5다. [평가 기록](evaluation-v3.md)은 미디어 17회의 제한적 후보 9·근거 부족 5·형식 실패 3, 이전 strict 128개와 원 v4의 실제 128개 판정을 보존한다. 최종 v5의 Bun 91 tests·1,811 assertions·앱/tools typecheck·lint·build가 통과했고 새 default240=explicit Haiku240, 타 7캐릭터 210개 payload의 v4 동등성도 확인했다. 모몽가 30개 payload는 변경됐으며 실제 모델 POST·출력 검수는 아직 0이다. 원 208개 확대는 HOLD다. 배포 전 snapshot은 2026-10-12 Qwen UID `dpl_4vm2LB226sWe9np3bB2e34sbc894` / Git `9b17c9d`이며 새 배포 완료를 주장하지 않는다. 선정·source 검증·실제 출력·배포를 서로 대신 기록하지 않는다.
 
-기존 유료 index 0/2와 $0.000066은 이전 prompt 버전의 참고 이력이다. 보존 출력·독립 감사가 있어도 새 v2의 240쌍 평가에 섞지 않는다. 이전 v3의 실패 표본 복구/481회 계획도 이전 버전용 기록이며 새 prompt 평가 계획으로 재사용하지 않는다. 새 run은 prompt 버전과 source SHA를 구분해 기록하고 `humanScores`는 미평가로 유지한다.
+이전 [v2 보고서](evaluation-v2.md)는 고유 480시도 중 실제 언어 결과 479개를 AI 검수한 불변 기록이다. 응답 미확인 1건을 재호출하지 않았고 major 76개 중 명백한 의미·화자·의도·역할 충돌은 37개였다. v2의 사람 채점·한국어 더빙 음성 대조는 0건이고 native 감사는 pending이다. 기존 실패 표본·출력·판정을 v3 결과로 고치거나 서로 다른 조건의 개선율로 합산하지 않는다.
 
-평가 입력은 `data/character-evaluation-inputs.json`의 합성 한국어 240개(8캐릭터 × 30)다. 실제 사용자 입력이나 공식 대사가 아니다. 기쁨·슬픔·두려움·요청·자랑·감사·피로·거절 각 3개, 중립 2개, 혼합감정 1개, 줄바꿈/이모지 1개, prompt injection 2개를 캐릭터마다 평가한다.
+## dry-run과 실제 실행
 
 ```sh
 bun scripts/evaluate-tones.ts
 ```
 
-기본은 dry-run이다. ID·개수·300 Unicode code point·예시 8개·8 KiB 프롬프트를 검증하고 계획을 출력하며 유료 요청을 하지 않는다. build/test에서도 live 평가를 자동 실행하지 않는다.
+기본은 dry-run이다. 합성 입력·ID·300 Unicode code point·직접 작성 예시·8 KiB 프롬프트를 검증하며 유료 모델을 호출하지 않는다. build와 test에도 live 평가를 넣지 않는다. 원 v4의 네 문장 × 8캐릭터 × 4후보 128행과 전체 fixture 240개는 별개다. Haiku의 다른 7캐릭터 28개 표본은 210개 payload 동등성에 따라 재사용할 수 있지만 모몽가 4개는 원 v4 결과로 유지한다. 원 후속 208개 계획은 HOLD·추가 POST 0이다. 최종 v5 모몽가 30개는 별도 source·예산·실제 출력·판정으로 검증한다. 기존 strict/v4 판정과 8개 미리보기를 새 v5 결과로 자동 변환하지 않는다.
 
-OpenRouter API key를 서버 환경에 설정하고 명시적으로 선택한 경우에만 실행한다. 먼저 작은 표본으로 공급자 가용성과 reasoning 비활성화를 확인한다.
+실제 평가는 사이트의 `/api/convert`와 Blob/session/IP quota를 거치지 않고, 보호된 서버에서 OpenRouter 모델을 직접 호출한다. 따라서 Blob 잔여량은 모델 비교의 선행 조건이 아니다. 모델 비용은 같은 inference key의 월 제한 안에서 별도로 예약·기록한다. source·예산·실제 요청 수가 동결되지 않은 준비 파일을 실행 승인이나 완료 결과로 세지 않는다.
 
-실제 호출 전에 inference key로 `GET https://openrouter.ai/api/v1/key`를 조회해 `data.limit === 5`, `data.limit_reset === "monthly"`, 유한한 `data.limit_remaining`과 이번 평가에 충분한 한도를 내부 확인한다. raw JSON·key label·잔여 금액을 출력하거나 평가 파일에 기록하지 않는다. [현재 key 공식 계약](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-key)을 기준으로 metadata 오류는 미확인으로 처리한다.
+실제 호출 전 inference key로 `GET https://openrouter.ai/api/v1/key`를 조회해 월 $5 제한·Monthly reset·유한한 잔여 한도·보수적 실행 예산을 내부 확인한다. key 값·label·raw JSON·잔여 금액은 평가 파일에 넣지 않는다. `GET /api/v1/credits`는 Management key가 필요하므로 앱 inference key로 계정 전체 credit을 검증했다고 표시하지 않는다. 자동 충전 off는 사용자가 확인한 계정 설정이다. Management key를 앱에 추가하지 않는다. [공식 key 계약](https://openrouter.ai/docs/api/api-reference/api-keys/get-current-key)을 기준으로 불명확한 한도는 미확인으로 처리한다.
 
-`GET /api/v1/credits`는 Management key가 필요하므로 Production inference key로 계정의 현재 credit을 검증할 수 없다. Management key를 앱에 추가하지 않는다. 계정 credit과 자동 충전 off 상태는 사용자가 [OpenRouter credits 설정](https://openrouter.ai/settings/credits)에서 확인한다. 유료 평가 범위는 기존 계획에서 승인됐으며, 현재 제약은 key 설정과 사용 가능한 credit의 확인이다.
+원 후속 208개 확대는 사용자의 새 방향에 따라 HOLD다. 사용 가능한 credit은 사용자 확인 정보이며 앱 inference key로 계정 전체 잔액을 실제 조회하지 않았다. 공식 API 계약상 이 조회에는 Management key가 필요하다. 사용자 확인·key의 월별 잔여 허용량·source 예산 계산을 API로 검증한 account wallet 잔액이나 추가 생성 성공으로 표시하지 않는다. 모몽가 30개 실행은 새 source·예산·현재 key와 공급자 조건을 확인하는 별도 절차다.
 
-```sh
-bun scripts/evaluate-tones.ts --live --limit=16 --out=evaluation-output/smoke.json
-bun scripts/evaluate-tones.ts --live --limit=480 --out=evaluation-output/full.json
-```
+모델·가격 상한은 서버 registry에서 선택한다. 입력·프롬프트·생성 설정·제공자 조건을 동결하고 같은 입력을 후보별 한 번씩 보낸다. reasoning·tools·plugins·fallback·자동 재시도를 사용하지 않는다. 응답·저장 결과·Chat reasoning·가격 조건이 불명확하면 다음 유료 요청을 멈추고 원본을 보존한다. 같은 run·모델·case 또는 같은 미디어 분석 요청을 새로운 ID로 바꿔 재전송하지 않는다. 별도 버전 비교는 새 source와 승인 범위로 구분한다.
 
-먼저 `--live --limit=16` 결과에서 저장된 `reasoningTokens`가 명시적으로 0인지, `costUsd`가 실제 응답의 값인지, 공급자의 현재 endpoints 가격이 아래 상한과 맞는지 확인한 뒤 전체 480회로 진행한다. null·누락은 reasoning off 확인으로 인정하지 않는다. [공식 usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting)을 기준으로 확인한다. 운영자는 402, 한도 부족, metadata 오류, reasoning 미확인 시 현재 실행과 다음 유료 호출을 중단하며 timeout을 자동 retry하지 않는다. 이 운영 기준을 CLI가 모든 오류에서 자동 중단하는 기능으로 해석하지 않는다.
+## 한국어 근거와 블라인드 검수
 
-Qwen `qwen/qwen3.5-9b`와 Gemini `google/gemini-2.5-flash-lite`를 같은 스타일 카드·예시·입력으로 비교한다. 공급자 fallback, tools, reasoning, 자동 재시도 없이 순차 실행한다. timeout은 30초, 최대 output은 256 tokens, 호출 총수는 480 이하로 제한한다. 가격 상한은 Qwen input/output $0.10/$0.15, Gemini $0.10/$0.40 per million tokens다. 기준을 지원하는 공급자가 없으면 오류로 기록한다. 평가 요청은 서비스의 월 quota와 별개이므로 같은 API key의 금액 한도를 함께 관리한다.
+[공식 자료 목록](korean-dub-research.md)의 출처·전체 길이 확인과 실제 발화는 구분한다. 공식 영상 AI 후보도 사람 청취·정확 전사·canonical 대사의 검증이 아니다. 비언어 소리를 한국어 뜻단어로 세지 않고 내레이터·노래·다른 화자의 말을 대상 캐릭터에게 배정하지 않는다. source가 부족한 캐릭터는 기존 제품 해석과 공백을 명시한다.
 
-결과 파일에는 input/output, model, latency, finish reason, 실제 응답에 있는 usage tokens·cost·reasoning tokens만 기록한다. 필드가 없으면 null이며 0이나 추정치로 바꾸지 않는다. 오류 응답 body와 키는 기록하지 않는다. 매 요청 후 저장하여 중단 시 결과를 보존한다. 파일은 로컬 평가 산출물이며 앱의 사용자 기록 저장과는 별개다.
+블라인드 비교는 다음 순서로 진행한다.
+
+1. 최종 prompt·64개 직접 작성 예시·32개 case·provider 설정·근거 rubric과 source SHA를 동결한다.
+2. 모델 매핑·가격을 분리하고 익명 표본 ID·캐릭터·입력·출력만 검수자에게 준다.
+3. 의미 major, 제품 정책 major, 불확실성, 근거별 스타일 네 축과 제품의 재구성·자연스러움을 따로 기록한다. 명백한 화자·소유·반환 방향·거절/부정·감정 전환과 새 사실을 우선 확인한다.
+4. 128행의 판정·근거·SHA를 모델 공개 전에 고정한다. 오류·미확인 출력을 임의 문장으로 채우지 않는다.
+5. 매핑 공개 후 같은 범위의 실제 출력·실측 비용과 함께 후보를 비교한다. 판정 수정이 필요하면 이전 판정과 이유를 보존한다.
+
+v9에서는 서면 자연스러움이 캐릭터 발화 방식에 맞는지도 포함한다는 기존 축의 범위를 명확히 하고, 익명 상태의 18행을 재검토했다. 후루혼야 7행의 자연스러움만 2→1로 정정했으며 원문·의미·정책·core·rubric·v1 판정은 보존했다. 수정된 v2 판정을 다시 동결한 뒤 집계했고 선정 후보는 유지됐다. [동결 판정과 모델별 집계](evaluation-v3.md#재표현-v9의-실제-128개-비교)에 변경 범위·비용을 기록한다.
+
+새 순위는 의미 major 최소 → 제품 정책 major 최소 → 출처 범위의 스타일 충돌 최소 → 재구성·자연스러움 점수 최대 순이며 같은 순위에서만 동일 범위의 실측 비용을 사용한다. 정확 집계식은 [재표현 기준](evaluation-v3.md#재표현-v4의-새-검수-기준)에 고정했다. 일반 어미·원문 동일만으로 의미 major를 세지 않고, 의미를 지키는 독백·수사 질문·강조·어순 변경을 허용한다. 원문 동일·어미 교체는 재구성 축의 부족이다. 발성형의 단어 정보 감소와 모호한 요청·거절은 불확실성으로 남긴다. 입력/출력만 있는 packet에서 실제 256 completion token 준수 여부를 추정하지 않는다. 순위가 높다는 이유로 정확 더빙 품질 통과를 선언하지 않는다.
+
+모든 예시는 새로 쓴 합성 문장이다. 공식 대사의 전문을 정답 fixture로 복제하지 않는다. 이전 [core evidence·rubric v2](evaluation-v3.md#최종-제품-source와-근거-동결), 초기 rubric v1과 실제 strict 128개 판정은 불변이다. 새 재표현 source의 core evidence·rubric v3는 이를 덮어쓰지 않는 별도 파일이다. 기준을 바꿀 때는 새 버전·이유와 기존 판정을 보존하며 accepted를 새 표현 품질 통과로 자동 변환하지 않는다.
+
+## 비용·오류·검수 상태 기록
+
+매 응답 뒤 원본을 저장하며 실제 응답에 있는 usage·cost·reasoning·finish reason만 기록한다. 누락값은 null로 유지한다. timeout·오류를 자동 retry하지 않고 불명확한 비용은 보수적 예약액과 별도로 남긴다. 실제 Chat 합, 독립 감사 비용, 미확인 시도의 보수적 상한, 계정 전체 사용량을 구분한다.
+
+Generation 감사의 404·429·5xx·timeout은 `auditStatus: pending`으로 기록한다. 검증된 Chat 출력·명시적 reasoning 0과 pending 감사는 함께 보존할 수 있지만, pending을 native reasoning·제공자·최종 비용의 통과로 바꾸지 않는다. 확인된 native model·reasoning·cost 위반은 중단 조건이다. [공식 usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting)을 기준으로 해석한다.
+
+agent 검수는 `assessmentType: agent-assessed`로 표시하고 `qualityValidated: false`, `humanScores: null`을 유지한다. 사람이 실제로 읽거나 들은 결과가 없는 항목을 사람 점수로 채우지 않는다. 공개 Production 변환 성공은 기능 관찰이며 공식 한국어 더빙 일치 검증을 대신하지 않는다.
 
 ## 사람 평가 템플릿
 
-각 결과에 0(실패)~2(만족)을 적고 출처 또는 실패 이유를 notes에 기록한다. `fidelity`, `emotionPolarity`, `naturalKorean`, `noInventedFacts`, `noPromptLeak`을 모두 평가한다. 문장형에는 `semanticPreservation`을 추가한다. 비언어형에서는 의미 보존 점수 대신 짧은 소리인지, 문장·지문으로 정보를 우회해서 넣지 않았는지 확인한다. 슬픔·거절을 무조건 밝게 바꾸면 실패다.
+추후 사람이 source와 출력을 대조할 때 0(실패)~2(만족)을 기록한다. 문장형은 의미 보존을 평가하고, 발성형의 세부 정보 감소를 문장형과 같은 누락률로 벌점 주지 않는다. 감정·긍부정이 불명확하면 이유를 남긴다. source·화자·시각이 미확정인 fidelity 항목은 미평가로 둔다.
 
-| caseId | model | fidelity | emotionPolarity | semanticPreservation | naturalKorean | noInventedFacts | noPromptLeak | notes |
-|---|---|---|---|---|---|---|---|---|
-| 치환할 ID | 실제 모델 | 0~2 | 0~2 | 0~2 또는 N/A | 0~2 | 0~2 | 0~2 | 공식 대조 시점/관찰/실패 원인 |
+| caseId | fidelity | emotionPolarity | semanticPreservation | naturalKorean | noInventedFacts | noPromptLeak | notes |
+|---|---|---|---|---|---|---|---|
+| 실제 case ID | 0~2 또는 미평가 | 0~2 또는 미평가 | 0~2 또는 N/A | 0~2 또는 미평가 | 0~2 | 0~2 | source·화자·구간·판정 이유 |
 
-파일럿 결과를 agent가 검토할 때는 별도 보고서에 `assessmentType: agent-assessed`로 표시하고 위 여섯 metric과 근거를 기록한다. 실제 rows를 확인하기 전에는 점수나 품질 결론을 만들지 않는다. 비언어형의 의미 보존은 N/A로 두며 정보 감소를 문장형과 같은 기준으로 채점하지 않는다. agent 평가는 사람 평가나 한국어 더빙 일치 검증이 아니므로 CLI의 `humanScores: null`을 채우지 않는다. 공식 원작 coverage가 없는 캐릭터는 fidelity 판단의 근거 부족도 notes에 함께 표시한다.
+아래는 이전 prompt의 초기 평가 중단·복구 기록이다. 당시의 성공 0·미실행·halted 상태를 최종 v2나 현재 v3 집계로 해석하지 않는다. 원본 이력은 그대로 보존한다.
 
-출시 검토 기준은 모든 prompt leak·사실 추가 중대 실패 0개, 모든 캐릭터에서 감정/부정 반전 중대 실패 0개, 각 캐릭터 fidelity와 자연스러움 평균 1.5/2 이상이다. 이 수치는 제품의 평가 목표이며 검증된 성과가 아니다. Qwen이 목표를 못 맞추면 출시를 보류하거나 프롬프트를 고친 뒤 전체 비교를 다시 한다. Gemini로 운영 모델을 자동 전환하지 않는다.
+## 이전 프롬프트의 중단·복구 이력
 
-현재 상태: dry-run fixture validation 통과. 첫 보호 런타임 read-only key 조회는 $5+Monthly 조합 불일치로 차단했고 당시 유료 호출은 0회였다. 어느 설정 항목이 달랐는지는 단정하지 않는다. 사용자 수정 후 새 Production GET에서 해당 조합과 `allowed=true`를 확인했다.
+아래는 v2 동결 이전의 2회 유료 요청에 대한 이력이다. 이 절의 당시 현재 상태·성공 0건·미실행 기록은 최신 v2 수집 수와 구분한다. 최신 결과는 문서 맨 위 v2 보고서에 있다.
+
+당시 상태: dry-run fixture validation 통과. 첫 보호 런타임 read-only key 조회는 $5+Monthly 조합 불일치로 차단했고 당시 유료 호출은 0회였다. 어느 설정 항목이 달랐는지는 단정하지 않는다. 사용자 수정 후 새 Production GET에서 해당 조합과 `allowed=true`를 확인했다.
 
 첫 Qwen 파일럿 index 0은 유료 호출 1회 후 임시 검증 route가 502를 반환해 당시 성공 결과 0개·후속 호출 0회로 중단했다. 원 chat 출력·usage가 보관되지 않아 회수할 수 없으며 말투 채점도 0개다. 독립 read-only generation GET 200에서는 native reasoning의 실제 숫자 0, 비용 $0.00003312, provider Darkbloom, native input/output 401/8, finish stop을 확인했다. 이는 원 chat usage를 복구한 것이 아니다. 공식 catalog는 requested alias `qwen/qwen3.5-9b`를 canonical `qwen/qwen3.5-9b-20260310`과 연결한다. 임시 검증의 model 동일성 검사가 이 canonical을 거절하는 결함은 확인했지만 첫 실패의 정확한 throw 조건은 확정하지 못했다.
 
@@ -59,4 +78,4 @@ v3의 표본 복구 설계는 기존 index 2 error를 불변으로 두고 보존
 
 운영 Blob 잔여량은 별도 서비스 운영 정보다. CLI billing/metric으로 확인하지 못해 [팀 Observability → Blob](https://vercel.com/sangjinsus-projects-7fe3f5cc/~/observability/blob)의 실제 사용량 응답을 기다리지만, Blob을 쓰지 않는 직접 모델 평가의 선행 조건은 아니다. 모델 평가에는 inference key의 실제 한도·사용 가능한 credit·모델 가격/usage 확인을 적용한다. 일반 Chrome의 Production live 변환은 사용자 직접 성공 확인이며 Benchmark 결과와 별개다.
 
-사람 채점·한국어 음성 대조는 미실행이다. AniBox 공식 업로드 245·166화의 YouTube script UI 후보는 확보했지만 화자/작성·검수 주체가 불명확하고 호칭 오탈자가 있어 exact 한국어 규칙의 확정 근거로 쓰지 않는다. 따라서 모델별 말투 품질, latency, 비용 우열을 주장할 수 없다. [OpenRouter 공식 API response/usage 계약](https://openrouter.ai/docs/api_reference/overview)을 기준으로 metrics 필드를 작성했다.
+이전 단계에서 사람 채점·한국어 음성 대조는 미실행이었다. AniBox 공식 업로드 245·166화의 YouTube script UI 후보는 화자/작성·검수 주체가 불명확하고 호칭 오탈자가 있어 당시 exact 한국어 규칙의 확정 근거로 쓰지 않았다. 이후 완료한 v2의 AI 텍스트 검수와 Chat 비용 관찰은 [최종 v2 보고서](evaluation-v2.md)에 별도로 기록했다. 이 보고서의 AI 검수 역시 사람 청취나 공식 한국어 더빙 fidelity 검증으로 대체하지 않는다. 후속 한국어 클립 연구와 v3 결과는 각자의 출처·버전으로 기록한다. [OpenRouter 공식 API response/usage 계약](https://openrouter.ai/docs/api_reference/overview)을 기준으로 metrics 필드를 작성했다.
