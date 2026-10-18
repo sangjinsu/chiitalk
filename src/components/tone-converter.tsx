@@ -6,9 +6,9 @@ import type { ApiErrorResponse, ConvertRequest, ConvertResponse, SessionResponse
 
 const MAX_CHARACTERS = 300;
 const EXAMPLES = [
-  { label: "응원할 때", text: "오늘도 수고했어. 조금 쉬어도 괜찮아!" },
-  { label: "고마울 때", text: "내 얘기를 들어줘서 고마워. 덕분에 힘이 났어." },
-  { label: "같이 놀고 싶을 때", text: "내일 같이 맛있는 거 먹으러 갈래?" },
+  { label: "수고했어", text: "오늘도 수고했어. 조금 쉬어도 괜찮아!" },
+  { label: "고마워", text: "내 얘기를 들어줘서 고마워. 덕분에 힘이 났어." },
+  { label: "같이 놀자", text: "내일 같이 맛있는 거 먹으러 갈래?" },
 ] as const;
 
 function Icon({ name }: { name: "spark" | "copy" | "check" | "reset" }) {
@@ -216,11 +216,11 @@ export function ToneConverter() {
   return (
     <form id="converter" className="converter" onSubmit={convert}>
       <fieldset className="character-fieldset" disabled={busy}>
-        <legend><span className="step-number">1</span>누구의 말투로 바꿀까요?</legend>
-        <p className="section-hint">말투도, 표현하는 방식도 조금씩 달라요.</p>
+        <legend><span className="step-number">1</span>어떤 친구의 말로 전할까요?</legend>
+        <p className="section-hint">마음에 드는 친구를 골라주세요.</p>
         <div className="character-grid">
           {CHARACTERS.map((friend) => (
-            <label key={friend.id} className={`character-option ${characterId === friend.id ? "is-selected" : ""}`}>
+            <label key={friend.id} className={`character-option ${characterId === friend.id ? "is-selected" : ""}`} style={{ "--character-tint": friend.tint } as CSSProperties}>
               <input type="radio" name="character" value={friend.id} checked={characterId === friend.id} onChange={() => chooseCharacter(friend.id)} />
               <strong className="character-name">{friend.name}</strong>
               <span className="selection-check" aria-hidden="true"><Icon name="check" /></span>
@@ -236,22 +236,22 @@ export function ToneConverter() {
       <div className="workspace-grid">
         <section className="input-panel" aria-labelledby="input-title">
           <div className="panel-heading">
-            <h2 id="input-title"><span className="step-number">2</span><label htmlFor="source-text">어떤 말을 전할까요?</label></h2>
+            <h2 id="input-title"><span className="step-number">2</span><label htmlFor="source-text">친구에게 전할 말</label></h2>
           </div>
           <div className="example-options" role="group" aria-label="상황별 예문 넣기">
             {EXAMPLES.map((example) => <button key={example.label} className="example-button" type="button" disabled={busy} onClick={() => { setText(example.text); setResult(null); setError(""); setCopyStatus("idle"); }}>{example.label}</button>)}
           </div>
           <div className={`textarea-wrap ${tooLong ? "has-error" : ""}`}>
-            <textarea ref={textarea} id="source-text" value={text} disabled={busy} aria-describedby="input-guidance input-counter input-error" aria-invalid={tooLong} placeholder={"오늘 하루도 수고했어.\n맛있는 거 먹고 푹 쉬자!"} onChange={(event) => { setText(event.target.value); setResult(null); setCopyStatus("idle"); setError(""); }} />
+            <textarea ref={textarea} id="source-text" value={text} disabled={busy} aria-describedby="input-guidance input-counter input-error" aria-invalid={tooLong} placeholder={"오늘도 수고했어.\n내일 같이 맛있는 거 먹으러 갈래?"} onChange={(event) => { setText(event.target.value); setResult(null); setCopyStatus("idle"); setError(""); }} />
             <span id="input-counter" className={`character-counter ${tooLong ? "has-error" : ""}`}>{length}<span> / {MAX_CHARACTERS}자</span></span>
           </div>
-          <div className="input-meta"><p id="input-guidance">짧은 일상 문장이 잘 어울려요.</p>{text.length > 0 && <button className="clear-button" type="button" disabled={busy} onClick={reset}>지우기</button>}</div>
+          <div className="input-meta"><p id="input-guidance">긴 문장도 좋아요. 편하게 적어주세요.</p>{text.length > 0 && <button className="clear-button" type="button" disabled={busy} onClick={reset}>지우기</button>}</div>
           <p id="input-error" className="validation-message" aria-live="polite">{tooLong ? "300자 이하로 줄여주세요. 이모지도 한 글자로 세어요." : ""}</p>
 
           <div className="submit-area">
-            <button className="convert-button" type="submit" disabled={!canSubmit}>{busy ? <span className="loading-dot" aria-hidden="true" /> : <Icon name="spark" />}{busy ? "말투를 담고 있어요…" : `${character.name} 말투로 바꾸기`}</button>
+            <button className="convert-button" type="submit" disabled={!canSubmit}>{busy ? <span className="loading-dot" aria-hidden="true" /> : <Icon name="spark" />}{busy ? "친구의 말로 바꾸고 있어요…" : `${character.name}의 말로 바꾸기`}</button>
           <div className="session-status" aria-live="polite">
-            {sessionLoading ? <p>횟수 확인 중…</p> : sessionError ? <div className="session-error"><p>{sessionError}</p><button type="button" onClick={() => { void refreshSession(); }} disabled={busy}>다시 확인</button></div> : session && <p>{session.mode === "demo" && <span className="mode-label">미리보기</span>}{exhausted ? quota?.limitReason === "monthly" ? "이번 달 횟수를 모두 썼어요." : "오늘 횟수를 모두 썼어요." : <>오늘 <strong>{quota?.remaining}회</strong> 남았어요</>}</p>}
+            {sessionLoading ? <p>횟수 확인 중…</p> : sessionError ? <div className="session-error"><p>{sessionError}</p><button type="button" onClick={() => { void refreshSession(); }} disabled={busy}>다시 확인</button></div> : session && <p>{session.mode === "demo" && <span className="mode-label">미리보기</span>}{exhausted ? quota?.limitReason === "monthly" ? "이번 달 횟수를 모두 썼어요." : "오늘 횟수를 모두 썼어요." : <>오늘 <strong>{quota?.remaining}번</strong> 더 바꿀 수 있어요</>}</p>}
             {!sessionLoading && !sessionError && session && <div className="quota-refresh">{exhausted && resetLabel && <p>{resetLabel} (한국 시간)에 다시 사용할 수 있어요.</p>}<button type="button" onClick={() => { void refreshSession(); }} disabled={busy}>횟수 다시 확인</button></div>}
           </div>
           </div>
@@ -259,12 +259,12 @@ export function ToneConverter() {
         </section>
 
         <section className={`result-panel ${result ? "has-result" : ""}`} aria-labelledby="result-title" aria-busy={busy}>
-          <div className="panel-heading"><h2 id="result-title"><span className="step-number">3</span>이렇게 전해봐요</h2></div>
+          <div className="panel-heading"><h2 id="result-title"><span className="step-number">3</span>이 말로 전해보세요</h2></div>
           <div className="result-live" aria-live="polite" aria-atomic="true">
-            {busy ? <div className="empty-result"><span className="empty-bubble is-loading" aria-hidden="true"><i /><i /><i /></span><p>{character.name}의 말투를 담고 있어요.</p></div> : result ? <div className="result-content"><div className="result-speaker"><strong className="result-character">{getCharacter(result.characterId)?.name}</strong></div><div className="speech-bubble" style={{ "--character-tint": getCharacter(result.characterId).tint } as CSSProperties}><p className="result-text">{result.result}</p></div>{result.mode === "demo" && <p className="preview-note">미리보기 예시예요. 실제 변환에서는 입력한 문장에 맞춰 말투를 담아요.</p>}</div> : <div className="empty-result"><p>{character.name}라면 뭐라고 할까요?</p><span>문장을 적고 말투로 바꾸기를 눌러주세요.</span></div>}
+            {busy ? <div className="empty-result"><span className="empty-bubble is-loading" aria-hidden="true"><i /><i /><i /></span><p>{character.name}의 한마디를 준비하고 있어요.</p></div> : result ? <div className="result-content"><div className="result-speaker"><strong className="result-character">{getCharacter(result.characterId)?.name}의 말로</strong></div><div className="speech-bubble" style={{ "--character-tint": getCharacter(result.characterId).tint } as CSSProperties}><p className="result-text">{result.result}</p></div>{result.mode === "demo" && <p className="preview-note">미리보기 예시예요. 실제 변환에서는 입력한 문장에 맞춰 말투를 담아요.</p>}</div> : <div className="empty-result"><span className="empty-bubble" aria-hidden="true"><i /><i /><i /></span><p>{character.name}라면 뭐라고 할까요?</p><span>전하고 싶은 한마디를 적어보세요.<br />바뀐 말은 복사해서 친구에게 전할 수 있어요.</span></div>}
           </div>
-          {result && <div className="result-actions"><button className="copy-button" type="button" onClick={() => { void copyResult(); }}><Icon name={copyStatus === "copied" ? "check" : "copy"} />{copyStatus === "copied" ? "복사했어요" : "문장 복사"}</button><button className="reset-button" type="button" onClick={reset}><Icon name="reset" />새 문장</button></div>}
-          <p className="copy-feedback" role="status">{copyStatus === "copied" ? "변환한 문장을 클립보드에 복사했어요." : copyStatus === "failed" ? "복사하지 못했어요. 위 문장을 직접 선택해 복사해 주세요." : ""}</p>
+          {result && <><p className="result-tip">복사한 말을 친구와의 대화창에 붙여넣어 보세요.</p><div className="result-actions"><button className="copy-button" type="button" onClick={() => { void copyResult(); }}><Icon name={copyStatus === "copied" ? "check" : "copy"} />{copyStatus === "copied" ? "복사했어요" : "말 복사하기"}</button><button className="reset-button" type="button" onClick={reset}><Icon name="reset" />다른 말 써보기</button></div></>}
+          <p className="copy-feedback" role="status">{copyStatus === "copied" ? "복사했어요! 친구와의 대화창에 붙여넣어 전해보세요." : copyStatus === "failed" ? "복사하지 못했어요. 위 문장을 직접 선택해 복사해 주세요." : ""}</p>
         </section>
       </div>
       <p className="privacy-note">입력한 문장과 변환 결과는 저장하지 않아요.</p>
