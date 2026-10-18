@@ -75,6 +75,25 @@ test('text responses reject real tool calls and malformed tool_calls types',asyn
   await expect(callProvider(payload,'key',new AbortController().signal,response)).rejects.toThrow('MODEL_UNAVAILABLE');
  }
 });
+test('replacement characters fail closed after one upstream request without retry',async()=>{
+ const payload=buildPayload({characterId:'momonga',text:'많이 걸어서 더는 움직이기 힘들어.'});
+ let calls=0;
+ const response=async()=>{
+  calls++;
+  return Response.json({choices:[{message:{content:'많이 \uFFFD¸었더니 이제 더는 못 움직이겠어…'}}]});
+ };
+ await expect(callProvider(payload,'test-key',new AbortController().signal,response)).rejects.toThrow('MODEL_UNAVAILABLE');
+ expect(calls).toBe(1);
+});
+test('valid Korean, emoji, and multilingual dialogue remains unchanged',async()=>{
+ const payload=buildPayload({characterId:'momonga',text:'안녕'});
+ for(const content of ['아, 기분 좋다!','고마워 😊','初めてだけど、해볼게! Hello!']){
+  let calls=0;
+  const response=async()=>{calls++;return Response.json({choices:[{message:{content}}]});};
+  expect(await callProvider(payload,'test-key',new AbortController().signal,response)).toBe(content);
+  expect(calls).toBe(1);
+ }
+});
 test('configured candidate serializes one real request without hidden retry options',async()=>{
  let calls=0;
  const payload=buildPayload({characterId:'shisa',text:'初めてだけど試すよ。'},'anthropic/claude-haiku-5.5');

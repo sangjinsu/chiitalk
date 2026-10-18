@@ -51,7 +51,7 @@ export async function callProvider(payload: ReturnType<typeof buildPayload>, key
     const message = result?.choices?.[0]?.message;
     const toolCalls = message?.tool_calls;
     const invalidToolCalls = toolCalls != null && (!Array.isArray(toolCalls) || toolCalls.length > 0);
-    if (typeof message?.content !== 'string' || !message.content.trim() || invalidToolCalls || message.function_call || result.error || Buffer.byteLength(message.content) > 8192) throw new QuotaError('MODEL_UNAVAILABLE');
+    if (typeof message?.content !== 'string' || !message.content.trim() || message.content.includes('\uFFFD') || invalidToolCalls || message.function_call || result.error || Buffer.byteLength(message.content) > 8192) throw new QuotaError('MODEL_UNAVAILABLE');
     return message.content.trim();
   } catch { throw new QuotaError('MODEL_UNAVAILABLE'); }
 }

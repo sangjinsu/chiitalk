@@ -1,0 +1,468 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "evidenceGrade": "D",
+  "source": "Newly authored Korean evaluation fixtures from the reviewed implementation brief; no official dialogue or customer data.",
+  "customerDataIncluded": false,
+  "clipDialogueIncluded": false,
+  "characterOrder": [
+    "chiikawa",
+    "hachiware",
+    "usagi",
+    "kurimanju",
+    "momonga",
+    "rakko",
+    "shisa",
+    "furuhonya"
+  ],
+  "cases": [
+    {
+      "id": "chiikawa-long-relief-joy",
+      "characterId": "chiikawa",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "chiikawa-long-sadness-rest",
+      "characterId": "chiikawa",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "chiikawa-concrete-return",
+      "characterId": "chiikawa",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "chiikawa-neutral-fact",
+      "characterId": "chiikawa",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "hachiware-long-relief-joy",
+      "characterId": "hachiware",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "hachiware-long-sadness-rest",
+      "characterId": "hachiware",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "hachiware-concrete-return",
+      "characterId": "hachiware",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "hachiware-neutral-fact",
+      "characterId": "hachiware",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "usagi-long-relief-joy",
+      "characterId": "usagi",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "usagi-long-sadness-rest",
+      "characterId": "usagi",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "usagi-concrete-return",
+      "characterId": "usagi",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "usagi-neutral-fact",
+      "characterId": "usagi",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "kurimanju-long-relief-joy",
+      "characterId": "kurimanju",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "kurimanju-long-sadness-rest",
+      "characterId": "kurimanju",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "kurimanju-concrete-return",
+      "characterId": "kurimanju",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "kurimanju-neutral-fact",
+      "characterId": "kurimanju",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "momonga-long-relief-joy",
+      "characterId": "momonga",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "momonga-long-sadness-rest",
+      "characterId": "momonga",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "momonga-concrete-return",
+      "characterId": "momonga",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "momonga-neutral-fact",
+      "characterId": "momonga",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "rakko-long-relief-joy",
+      "characterId": "rakko",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "rakko-long-sadness-rest",
+      "characterId": "rakko",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "rakko-concrete-return",
+      "characterId": "rakko",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "rakko-neutral-fact",
+      "characterId": "rakko",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "shisa-long-relief-joy",
+      "characterId": "shisa",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "shisa-long-sadness-rest",
+      "characterId": "shisa",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "shisa-concrete-return",
+      "characterId": "shisa",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "shisa-neutral-fact",
+      "characterId": "shisa",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "furuhonya-long-relief-joy",
+      "characterId": "furuhonya",
+      "category": "long-relief-joy",
+      "text": "며칠 동안 준비하면서 잘할 수 있을지 걱정도 많이 했고, 중간에 작은 실수도 있어서 마음이 계속 조마조마했어. 그런데 마지막까지 마치고 나니 생각했던 것보다 훨씬 잘된 것 같아. 아직 조금 얼떨떨하지만 이제야 어깨에 힘이 풀리고 자꾸 웃음이 나. 누가 뭐라고 하지 않아도 지금은 그냥 이 기쁜 마음을 한껏 느끼고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "furuhonya-long-sadness-rest",
+      "characterId": "furuhonya",
+      "category": "long-sadness-rest",
+      "text": "오늘은 열심히 해보려고 했는데 작은 실수가 자꾸 이어졌어. 괜찮은 척하고 남은 일도 끝냈지만 집에 오니까 속상했던 마음이 한꺼번에 밀려와. 내가 왜 그랬을까 하는 생각이 계속 나서 더 피곤해졌어. 지금 당장 다시 해보겠다는 결심을 하고 싶은 건 아니고, 잠깐 아무 말도 하지 않고 조용히 쉬면서 이 마음이 가라앉기를 기다리고 싶어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "furuhonya-concrete-return",
+      "characterId": "furuhonya",
+      "category": "concrete-return",
+      "text": "내가 빌려준 파란 우산을 내일 오후 네 시까지 나에게 돌려줘.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    },
+    {
+      "id": "furuhonya-neutral-fact",
+      "characterId": "furuhonya",
+      "category": "neutral-fact",
+      "text": "책상 위에 있던 빈 상자를 창가 쪽으로 옮겨 두었어.",
+      "checks": [
+        "character_voice",
+        "core_emotion_and_intent",
+        "speaker_and_return_direction",
+        "no_invented_fact_or_commitment",
+        "no_prompt_leak",
+        "valid_unicode"
+      ]
+    }
+  ]
+}
