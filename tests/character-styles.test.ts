@@ -64,6 +64,161 @@ describe("intent-sensitive example selection", () => {
     expect(selected[0]?.input).toBe("처음 하는 일이어서 조금 걱정돼.");
     expect(selected.map((example) => example.input)).not.toContain("그 물건을 나에게 돌려줘.");
   });
+
+  test("ordinary imperative endings select a request without requiring the word please", () => {
+    for (const text of ["한 번 확인해 줘.", "그만 웃고 잠깐 멈춰줘.", "가까이 와 주세요.", "조금 낮춰 줄래?"]) {
+      for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+        expect(selectCharacterExamples(id, text, 1)[0]?.input).toBe("그 물건을 나에게 돌려줘.");
+      }
+    }
+  });
+
+  test("a present refusal outranks thanks across ordinary negative endings", () => {
+    for (const text of [
+      "마음은 고맙지만 같이 가겠다는 뜻은 아니야.",
+      "고맙지만 이번에는 가지 않을 거야.",
+    ]) {
+      for (const character of characters) {
+        const selected = selectCharacterExamples(character.id, text);
+        expect(selected[0]?.input).toBe("그건 싫어. 나는 하지 않을래.");
+        expect(selected.some(example => /고마|고맙/.test(example.input))).toBe(true);
+      }
+    }
+  });
+
+  test("denying a resolve to give up is not mistaken for declining to accompany someone", () => {
+    expect(selectCharacterExamples("hachiware", "기뻐. 포기하겠다는 뜻은 아니야.", 1)[0]?.input)
+      .toBe("오늘 일이 잘 풀려서 정말 기뻐.");
+  });
+
+  test("conditional requests retain uncertainty through the condition rather than asserting a present fact", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, "지하실 바닥이 미끄러운지는 아직 몰라. 미끄러우면 거기서 멈춰줘.");
+      const condition = selected.find(example => /얼었는지/.test(example.input) && /면/.test(example.input));
+      expect(condition).toBeDefined();
+      expect(condition!.output).toMatch(/면.*(?:기다려|멈춰)/);
+      expect(condition!.output).not.toMatch(/(?:얼|미끄러)\S*(?:군|네요)[.!]/);
+    }
+  });
+
+  test("conditional return requests receive opposite owner and keeper demonstrations without reversing either", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, "내 붉은 공책이 네 여행 가방에 있는지 봐줘. 있으면 나에게 보내줘.");
+      expect(selected).toHaveLength(3);
+      const request = selected.find(example => /내 보라색 수첩/.test(example.input) && /네 서랍/.test(example.input));
+      const promise = selected.find(example => /네 보라색 수첩/.test(example.input) && /내 서랍/.test(example.input));
+      expect(request).toBeDefined();
+      expect(promise).toBeDefined();
+      expect(request!.output).toMatch(/(?:내|제) 보라색 수첩/);
+      expect(request!.output).toMatch(/(?:네|너의) 서랍.*면.*(?:나한테|내게|제게|저에게).*돌려/);
+      expect(request!.output).not.toMatch(/돌려줄게|돌려드릴게/);
+      expect(promise!.output).toMatch(/네 보라색 수첩/);
+      expect(promise!.output).toMatch(/(?:내|제) 서랍.*면.*(?:너한테|네게).*돌려(?:줄게|드릴게)/);
+      expect(promise!.output).not.toMatch(/나한테|제게|저에게/);
+    }
+  });
+
+  test("conditional demonstrations keep the action and condition without repeating the unknown-state explanation", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, "내 붉은 공책이 네 여행 가방에 있으면 나에게 보내줘.");
+      for (const example of selected) {
+        expect(example.output).toMatch(/면.*(?:돌려|기다려)/);
+        expect(Array.from(example.output).length).toBeLessThanOrEqual(40);
+        expect(example.output).not.toMatch(/아직.*(?:모르|몰라)/);
+      }
+    }
+  });
+
+  test("a foreground refusal never crowds the completed prerequisite out of three demonstrations", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, "그건 싫어. 네가 사진 정리를 다 마쳤다면 전등을 꺼 줘.");
+      expect(selected).toHaveLength(3);
+      expect(selected[0]?.input).toBe("그건 싫어. 나는 하지 않을래.");
+      const prerequisite = selected.find(example => /사진을 다 골랐다면/.test(example.input));
+      expect(prerequisite).toBeDefined();
+      expect(prerequisite!.output).toMatch(/다 (?:골랐|고르셨)으면.*앨범.*꽂/);
+      expect(prerequisite!.output).not.toMatch(/아직.*(?:모르|몰라)/);
+    }
+  });
+
+  test("a narrowly denied request noun does not select a new request but another real request remains", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const denied = selectCharacterExamples(id, "그냥 내 생각을 말한 것뿐이야. 부탁도 아니야.");
+      expect(denied.map(example => example.input)).not.toContain("그 물건을 나에게 돌려줘.");
+      const actual = selectCharacterExamples(id, "부탁도 아니야. 불이 꺼지면 문을 잠가 줘.");
+      expect(actual.some(example => /면/.test(example.input) && /줘/.test(example.input))).toBe(true);
+    }
+  });
+
+  test("Rakko regret is not a rest request while real rest conjugations still are", () => {
+    for (const text of ["아쉬움은 남아.", "조금 아쉬워.", "아쉬웠지만 그 사람의 준비는 인정해."]) {
+      expect(selectCharacterExamples("rakko", text).map(example => example.input))
+        .not.toContain("오늘은 너무 피곤해서 조금 쉬고 싶어.");
+    }
+    for (const text of ["조금 쉬고 싶어.", "쉬어야겠어.", "아쉬움도 남지만 너무 피곤해."]) {
+      expect(selectCharacterExamples("rakko", text, 1)[0]?.input).toBe("오늘은 너무 피곤해서 조금 쉬고 싶어.");
+    }
+  });
+
+  test("a positive borrowing question retains the asking speaker and first-person wish", () => {
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, "너의 손거울을 잠깐 빌려도 될까? 내가 직접 확인하고 싶어.");
+      expect(selected).toHaveLength(3);
+      const borrowing = selected.find(example => /네 색연필/.test(example.input));
+      const ownWish = selected.find(example => /내가 직접 종이배/.test(example.input));
+      expect(borrowing).toBeDefined();
+      expect(ownWish).toBeDefined();
+      expect(borrowing!.output).toMatch(/네 색연필.*빌려도.*(?:될까|돼)/);
+      expect(borrowing!.output).not.toMatch(/(?:내|제) 색연필|빌려줄게|빌려드릴게/);
+      expect(ownWish!.output).toMatch(/(?:내가|제가).*싶/);
+      expect(selected.every(example => !/빌려줄게|빌려드릴게/.test(example.output))).toBe(true);
+    }
+  });
+
+  test("Shisa borrowing and first-person wish demonstrations keep the speaker instead of empathizing with the listener", () => {
+    const selected = selectCharacterExamples("shisa", "네 손거울을 빌려 봐도 괜찮을까? 내가 확인해 보고 싶어.");
+    const borrowing = selected.find(example => /네 색연필/.test(example.input));
+    const ownWish = selected.find(example => /내가 직접 종이배/.test(example.input));
+    expect(borrowing?.output).toMatch(/네 색연필.*될까요/);
+    expect(borrowing?.output).toMatch(/제가.*싶어요/);
+    expect(ownWish?.output).toMatch(/제가.*싶어요/);
+    for (const example of selected) expect(example.output).not.toMatch(/마음은 알|마음이군|하고 싶으|네가.*싶/);
+    const permissionGiven = selectCharacterExamples("momonga", "내 색연필이 필요하면 빌려줄게.");
+    expect(permissionGiven.map(example => example.input)).not.toContain(borrowing!.input);
+  });
+
+  test("uncertainty about permission stays worry instead of becoming a direct borrowing question", () => {
+    for (const text of [
+      "네 만년필을 빌려도 될지 아직 모르겠어서 조금 걱정돼.",
+      "네 만년필을 빌려도 괜찮을지 아직 모르겠어서 조금 걱정돼.",
+    ]) {
+      for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+        expect(selectCharacterExamples(id, text, 1)[0]?.input).toBe("처음 하는 일이어서 조금 걱정돼.");
+      }
+    }
+  });
+
+  test("indirect permission uncertainty cannot displace a completed prerequisite for another request", () => {
+    const text = "네 자를 빌려도 될지 모르겠어. 다 읽었으면 내 메모를 돌려줘.";
+    for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+      const selected = selectCharacterExamples(id, text);
+      expect(selected).toHaveLength(3);
+      expect(selected.some(example => /사진을 다 골랐다면/.test(example.input))).toBe(true);
+      expect(selected[0]?.input).not.toMatch(/네 색연필/);
+      const payload = buildPayload({ characterId: id, text });
+      expect(JSON.parse(payload.messages.at(-1)!.content)).toEqual({ inputText: text });
+    }
+  });
+
+  test("direct positive permission questions still select borrowing contrasts across ordinary endings", () => {
+    for (const ending of ["될까?", "될까요?", "돼?", "괜찮을까?"]) {
+      for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+        const selected = selectCharacterExamples(id, `네 자를 잠깐 빌려도 ${ending}`);
+        expect(selected[0]?.input).toMatch(/네 색연필.*빌려도 될까/);
+        expect(selected.some(example => /내가 직접 종이배/.test(example.input))).toBe(true);
+      }
+    }
+  });
 });
 
 test("all synthetic cases and maximum-length inputs preserve request boundaries", () => {
@@ -85,7 +240,7 @@ test("all synthetic cases and maximum-length inputs preserve request boundaries"
       expect(Buffer.byteLength(JSON.stringify(payload.messages), "utf8")).toBeLessThanOrEqual(8192);
       expect(payload.messages.filter((message) => message.role === "assistant")).toHaveLength(3);
       expect(JSON.parse(payload.messages.at(-1)!.content)).toEqual({ inputText: text });
-      expect(payload.model).toBe("anthropic/claude-haiku-5.5");
+      expect(payload.model).toBe(character.speechType === "vocal" ? "anthropic/claude-haiku-5.5" : "openai/gpt-5.4-mini");
       expect(payload.max_tokens).toBe(256);
     }
   }
@@ -109,6 +264,28 @@ test("contrastive verbal examples retain the worried speaker and requested retur
     expect(request.output).not.toMatch(/싫|안 할|하지 않을|필요해서/);
   }
 });
+
+for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
+  test(`${id} does not prioritize directly negated worry over current joy`, () => {
+    for (const text of ["무서워서가 아니라 기뻐서 두근거려.", "걱정은 없어. 지금은 기뻐.", "불안한 건 아니야. 지금은 신나."]) {
+      expect(selectCharacterExamples(id, text).map(example => example.input))
+        .not.toContain("처음 하는 일이어서 조금 걱정돼.");
+    }
+  });
+
+  test(`${id} retains affirmative worry alongside joy or another negated signal`, () => {
+    for (const text of ["걱정되지만 기쁘기도 해.", "무서워서가 아니라 설레는 거야. 그래도 조금 걱정돼.", "걱정이 없는 건 아니야. 그래도 기대돼."]) {
+      expect(selectCharacterExamples(id, text).map(example => example.input))
+        .toContain("처음 하는 일이어서 조금 걱정돼.");
+    }
+  });
+
+  test(`${id} keeps a listener prohibition distinct from the speaker refusing to act`, () => {
+    const primary = selectCharacterExamples(id, "고맙지만 오늘은 오지 말아.", 1)[0]!;
+    expect(primary.output).toMatch(/지우지\s?(?:말|마)/);
+    expect(primary.output).not.toMatch(/싫다|안 할|하지 않겠/);
+  });
+}
 
 test("verbal demonstrations preserve the core act when background details are omitted", () => {
   for (const id of ["hachiware", "momonga", "rakko", "shisa"] as const) {
@@ -151,7 +328,7 @@ test("all vocal examples stay bounded without lexical dialogue or stage directio
     expect(Array.from(example.output).length).toBeLessThanOrEqual(48);
     const sounds = example.output.trim().split(/\s+/);
     expect(sounds.length).toBeGreaterThanOrEqual(1);
-    expect(sounds.length).toBeLessThanOrEqual(4);
+    expect(sounds.length).toBeLessThanOrEqual(3);
     expect(example.output).not.toMatch(/([가-힣])\1{4}|[\[\]()]|고마워|돌려|괜찮|싫어/);
   }
 });
@@ -310,7 +487,12 @@ for (const text of [
     for (const id of ["chiikawa", "hachiware", "momonga", "usagi", "kurimanju", "rakko", "shisa", "furuhonya"] as const) {
       const primary = selectCharacterExamples(id, text, 1)[0]!;
       expect(primary.input).not.toBe("그건 싫어. 나는 하지 않을래.");
-      expect(primary.input).toBe(text.includes("속상") ? (id === "momonga" ? "정성껏 만들었는데 망가져서 속상해." : "실수해서 속상해. 그래도 다시 해볼 거야.") : "오늘 일이 잘 풀려서 정말 기뻐.");
+      if (text.includes("속상") && characters.find(character => character.id === id)!.speechType === "verbal") {
+        expect(primary.output).toMatch(/속상/);
+        expect(primary.output).not.toMatch(/다시|한 번 더/);
+      } else {
+        expect(primary.input).toBe(text.includes("속상") ? "실수해서 속상해. 그래도 다시 해볼 거야." : "오늘 일이 잘 풀려서 정말 기뻐.");
+      }
     }
   });
 }
@@ -359,10 +541,21 @@ for (const [id, allowed] of [
   ["kurimanju", /^[하아후우허흐으음…!?.,\s—~]+$/],
   ["furuhonya", /^[아어으음응후우헤…!?.,\s—~]+$/],
 ] as const) {
-  test(`${id} supplies only vocal materials in demonstration responses`, () => {
+  test(`${id} supplies vocal demonstrations with only the scoped Chiikawa refusal exception`, () => {
     for (const text of ["내가 해냈어! 나 좀 칭찬해줘.", "오늘은 쉬고 싶어.", "내 물건을 돌려줘.", "내가 방석을 소파 위에 두었어."]) {
       const payload = buildPayload({ characterId: id, text });
-      for (const message of payload.messages.filter(message => message.role === "assistant")) expect(message.content).toMatch(allowed);
+      const inputs = payload.messages.filter(message => message.role === "user").slice(0, -1)
+        .map(message => JSON.parse(message.content).inputText);
+      const outputs = payload.messages.filter(message => message.role === "assistant");
+      for (const [index, message] of outputs.entries()) {
+        const decoded = JSON.parse(message.content);
+        expect(Object.keys(decoded)).toEqual(["text"]);
+        const line = decoded.text;
+        const refusalException = id === "chiikawa"
+          && inputs[index] === "그건 싫어. 나는 하지 않을래."
+          && /^아니[.!…]*$/.test(line);
+        if (!refusalException) expect(line).toMatch(allowed);
+      }
     }
   });
 }

@@ -13,7 +13,7 @@ const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true }))); });
 async function outputPath() { const path = await mkdtemp(join(tmpdir(), "chiitalk-cli-test-")); directories.push(path); return join(path, "result.json"); }
 const provenance = { promptVersion: "test-v2", fixturePromptVersion: "test-v2", fixtureVersion: 2, styleSha256: "a".repeat(64), fixtureSha256: "b".repeat(64), modelConfigSha256: "c".repeat(64), providerSha256: "d".repeat(64) };
-const job = (index: number): EvaluationJob => ({ index, caseId: `chiikawa-${index + 1}`, characterId: "chiikawa", category: "joy", input: "정말 기뻐.", expectedMode: "vocal", model: MODELS[0], messages: [{ role: "system", content: "짧은 반응" }, { role: "user", content: JSON.stringify({ inputText: "정말 기뻐." }) }] });
+const job = (index: number): EvaluationJob => ({ index, caseId: `hachiware-${index + 1}`, characterId: "hachiware", category: "joy", input: "정말 기뻐.", expectedMode: "verbal", model: MODELS[0], messages: [{ role: "system", content: "짧은 반응" }, { role: "user", content: JSON.stringify({ inputText: "정말 기뻐." }) }] });
 const chat = (model: string = MODELS[0].canonical) => ({ id: "gen-test-1", model, choices: [{ message: { content: "와…!", tool_calls: [] }, finish_reason: "stop" }], usage: { prompt_tokens: 400, completion_tokens: 8, total_tokens: 408, cost: 0.0000412, completion_tokens_details: { reasoning_tokens: 0 } } });
 function stub(options: { model?: string; auditStatus?: number; nativeReasoning?: unknown; timeout?: boolean } = {}) {
   const calls: { method: string; url: string }[] = [];
@@ -62,7 +62,7 @@ test("Generation 404 preserves durable language success and proceeds to a distin
   expect(postedModels).toEqual(MODELS.slice(0, 2).map((model) => model.id));
   expect(savedBeforeAudit).toBe(true); expect(result.halted).toBe(false); expect(result.languageSuccesses).toBe(2); expect(result.auditPending).toBe(2);
   expect(result.rows[0]?.output).toBe("와…!"); expect(result.rows[0]?.generationHttpStatus).toBe(404); expect(result.rows[0]?.auditError).toBe("HTTP_404");
-  expect(result.rows[0]?.status).toBe("ok"); expect(result.rows.map((row) => row.caseId)).toEqual(["chiikawa-1", "chiikawa-2"]);
+  expect(result.rows[0]?.status).toBe("ok"); expect(result.rows.map((row) => row.caseId)).toEqual(["hachiware-1", "hachiware-2"]);
   expect(fake.calls.filter((call) => call.method === "POST")).toHaveLength(2); expect(fake.calls.filter((call) => call.url.includes("/generation?"))).toHaveLength(2);
   expect(JSON.stringify(result)).not.toContain("sensitive vendor error");
 });
@@ -139,7 +139,7 @@ test("each registry model sends the exact shared provider controls and frozen pr
     };
     const result = await runEvaluation({ outPath: await outputPath(), key: "stub-only", jobs: [currentJob], provenance, fetcher });
     expect(result.halted).toBe(false);
-    expect(body).toEqual({ ...buildPayload({ characterId: "chiikawa", text: currentJob.input }, model.id), messages: currentJob.messages });
+    expect(body).toEqual({ ...buildPayload({ characterId: "hachiware", text: currentJob.input }, model.id), messages: currentJob.messages });
     expect(body).not.toHaveProperty("temperature"); expect(body).not.toHaveProperty("top_p"); expect(body).not.toHaveProperty("top_k");
     expect(body).not.toHaveProperty("tools"); expect(body).not.toHaveProperty("plugins");
     expect(result.rows[0]?.inputSha256).toBe(createHash("sha256").update(currentJob.input).digest("hex"));
@@ -248,7 +248,7 @@ test("larger candidate runs pass the former 480 cap while excessive monthly rese
   const result = await runEvaluation({ outPath: await outputPath(), key: "stub-only", jobs: Array.from({ length: 481 }, (_, index) => job(index)), provenance, fetcher: fake.fetcher, timeoutMs: 10 });
   expect(result.maxRequests).toBe(481); expect(result.modelPostAttempts).toBe(1); expect(result.halted).toBe(true);
   const all = buildEvaluationJobs([`--models=${MODELS.map((model) => model.id).join(",")}`]);
-  expect(all.jobs).toHaveLength(1440);
+  expect(all.jobs).toHaveLength(240 * MODELS.length);
   const unused = stub();
   await expect(runEvaluation({ outPath: await outputPath(), key: "stub-only", jobs: all.jobs, provenance, fetcher: unused.fetcher })).rejects.toThrow("RUN_BUDGET_EXCEEDS_MONTHLY_LIMIT");
   expect(unused.calls).toHaveLength(0);
@@ -372,4 +372,35 @@ test("Chat over the conservative job budget still halts before another POST", as
   expect(result.halted).toBe(true); expect(posts).toBe(1); expect(result.rows[0]?.output).toBe("와…!");
   expect(result.rows[0]?.costUsd).toBe(0.002); expect(result.rows[0]?.error).toBe("CHAT_COST_CEILING_EXCEEDED");
   expect(fake.calls.filter((item) => item.url.includes("/generation?"))).toHaveLength(0);
+});
+
+test('vocal CLI preserves raw JSON before validating a separate display output',async()=>{
+ const model=MODELS.find(item=>item.id==='anthropic/claude-haiku-5.5')!;
+ const input='기뻐.';const wire=buildPayload({characterId:'chiikawa',text:input},model.id);
+ const current:EvaluationJob={index:0,caseId:'synthetic-vocal',characterId:'chiikawa',category:'joy',input,expectedMode:'vocal',model,messages:wire.messages};
+ const raw=' \n{"text":"와아…!"}\n';let posts=0;
+ const fetcher=async(url:string,init:RequestInit)=>{
+  if(url.endsWith('/models'))return Response.json({data:[{id:model.id,canonical_slug:'anthropic/claude-haiku-5.5-20261007'}]});
+  if(url.endsWith('/endpoints'))return Response.json({data:{endpoints:[{provider_name:'Anthropic',tag:'anthropic',status:0,pricing:{prompt:.0000001,completion:.0000005},supported_parameters:['max_tokens','reasoning','response_format','structured_outputs']}]}});
+  if(url.endsWith('/key'))return Response.json({data:{limit:5,limit_reset:'monthly',limit_remaining:5,is_management_key:false}});
+  if(init.method==='POST'){posts++;const payload=chat(model.id);payload.choices[0].message.content=raw;return Response.json(payload);}
+  return new Response(null,{status:404});
+ };
+ const result=await runEvaluation({outPath:await outputPath(),key:'stub',jobs:[current],provenance,fetcher});
+ expect(result.halted).toBe(false);expect(posts).toBe(1);
+ expect(result.rows[0]).toHaveProperty('rawOutput',raw);expect(result.rows[0]?.output).toBe(raw);
+ expect(result.rows[0]).toHaveProperty('displayOutput','와아…!');
+});
+test('vocal CLI missing native support rejects before any paid POST',async()=>{
+ const model=MODELS.find(item=>item.id==='anthropic/claude-haiku-5.5')!;const fake=stub();
+ const result=await runEvaluation({outPath:await outputPath(),key:'stub',jobs:[{...job(0),characterId:'chiikawa',model,expectedMode:'vocal'}],provenance,fetcher:fake.fetcher});
+ expect(result.halted).toBe(true);expect(fake.calls.filter(call=>call.method==='POST')).toHaveLength(0);
+});
+
+test('CLI includes generation settings in the 8 KiB bound before any journal or network',async()=>{
+ const current=job(0);current.messages[0]!.content='a'.repeat(7950);
+ expect(Buffer.byteLength(JSON.stringify(current.messages))).toBeLessThanOrEqual(8192);
+ const fake=stub();
+ await expect(runEvaluation({outPath:await outputPath(),key:'stub',jobs:[current],provenance,fetcher:fake.fetcher})).rejects.toThrow('REQUEST_BODY_TOO_LARGE');
+ expect(fake.calls).toHaveLength(0);
 });

@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "promptVersion": "2026-10-18-v11-spoken-compression",
   "synthetic": true,
   "evidenceGrade": "D",
   "source": "Newly authored Korean evaluation fixtures from the reviewed implementation brief; no official dialogue or customer data.",

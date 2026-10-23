@@ -11,7 +11,7 @@
     "typecheck": "bun run typecheck:app && bun run typecheck:tools",
     "typecheck:app": "tsc --noEmit -p tsconfig.json",
     "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
-    "test": "bun test",
+    "test": "bun test ./tests",
     "check:live-blob": "bun scripts/check-live-blob.ts"
   },
   "dependencies": {

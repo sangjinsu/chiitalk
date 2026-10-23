@@ -1,6 +1,8 @@
 # 한국어 말투 연구와 재표현 모델 비교
 
-초기 기록일: 2026-10-11. 최신 갱신: 2026-10-18 KST. **기본 모델은 Claude Haiku 5.5, 이번 릴리스 source는 `2026-10-18-v8-subtitle-voices`다.** 첫 v7 32개에서 두 발화행위 오류를 확인해 공개 배포를 보류한 뒤 보정한 v8의 동일 32개 실제 재검수도 완료했다. 원 v4 실제 128개 비교·판정·비용, 옛 기준의 v5 추가 30개·첫 v7·v8 결과와 원 208개 HOLD는 각각 보존한다. 검수 당시 공개 기준점은 10/17 배포한 v5 Git `3dcaf8bb84b7a7dcba73529a05823b800e058d3b`다. 이번 릴리스의 공개 배포는 Git SHA·Vercel `READY`·도메인 연결을 별도 증거로 확인한다.
+초기 기록일: 2026-10-11. 최신 갱신: 2026-10-23 KST. 현재 저장소 구현은 **말 중심 네 캐릭터에 GPT-5.4 mini(H), 발성 네 캐릭터에 Haiku**를 사용한다. H는 같은 12입력에서 전체 4/8/0·원 의미 10/2/0·독립 의미 9/3/0이며 weak는 남는다. **제품 통합·최종 기술 검사·Architect 소스 승인은 완료**했다. 변경 전 공개 baseline은 c052·v8·Haiku다. Git push·실제 새 배포·canary는 별도 릴리스 근거로 확인하며 소스 검사 통과로 대신하지 않는다. 최근 네 단계 실제 생성은 88회·관측 Chat 합 $0.0269819이며 최종 청구는 미확인이다. [추가 검증 기록](evaluations/2026-10-23-model-comparison.md)에 첫 24개·repair16·speaker-fix의 HOLD와 최종 선정 범위를 각각 보존한다. v11 실제 56개 판정 20 pass·28 weak·8 major·HOLD도 유지한다. 이전 v10 실제 48개의 **pass 16·weak 30·major 2·HOLD**, v9 실제 32개의 pass 17·weak 11·major 4·HOLD와 원본·비용을 보존한다. 변경 전 공개 baseline v8의 pass 29·weak 3·major 0도 새 후보의 성능으로 옮기지 않는다. 원 v4 실제 128개 비교·판정·비용, v5 추가 30개·첫 v7 결과와 원 208개 HOLD도 각각 보존한다. v7/v8 검수 당시 공개 기준점은 10/17 배포한 v5 Git `3dcaf8bb84b7a7dcba73529a05823b800e058d3b`였다. 새 공개 배포는 Git SHA·Vercel `READY`·도메인 연결을 별도 증거로 확인한다.
+
+이 문서 아래의 **재표현 비교 run v9**는 10/11의 `chiitalk-text-playful-compare-2026-10-11-v9`이며, 10/18의 **자막 압축 style v9**와 서로 다른 버전 체계다. 그 4모델·128개 결과를 이번 새 32개 실행이나 품질 판정으로 세지 않는다.
 
 미디어 요청 17회의 제한적 AI 후보 9건·근거 부족 5건·형식 실패 3건, Chat 비용 $0.1621947과 이전 strict 128개 판정은 보존한다. 모몽가 중복 장면 가능성·랏코 조건부 화자 해석·후루혼야 본인 한국어 발화 공백은 그대로다. `2026-10-11-v4-reexpress` source·64 예시·core evidence·rubric v3의 실제 비교를 아래에 기록하며, 미디어 관찰·agent 서면 판정·기술 승인을 사람 검수나 정확 더빙 품질 통과로 표시하지 않는다.
 
@@ -26,6 +28,17 @@
 | v5 공개 배포 | 10/17 Git `3dcaf8b`·Vercel `READY`·공개 도메인 연결 확인 | UID `dpl_3JdjXZA3VZsZW82LzRmpERAg8tjY`; 이번 모델 검수 당시 공개 기준점 |
 | 한국어 자막 기준 첫 v7 | 실제 32개 완료; 비맹검 AI pass 23·weak 7·major 2 | 하치와레 발화행위 오류로 공개 배포 보류; 원 결과 보존 |
 | v8 보정·실제 재검수 | 같은 32개 실제 완료·비맹검 AI pass 29·weak 3·major 0; 제품 130 tests·typecheck·lint·build 통과 | 독립 holdout 아님; 공개 배포의 Git SHA·READY·도메인 연결은 별도 검증 |
+| 자막 압축 v9 연구·제품 정책 | 팬 자막 2관찰·14 decoded frames와 제외 poster 3개; 현재 의도 우선·발성 보통 1–2개/최대 3개 적용안 | 직접 청취 0·독립 원작 회차 확정 0; 장면과 D 제품 예외를 분리 |
+| 자막 압축 v9 source | 최종 style·신규 16개·평가 32개 snapshot 동결; 제품 130 tests·2,018 assertions·앱/tools typecheck·lint·build 통과 보고 | source 기술 검증이며 언어 품질·공개 배포를 대신하지 않음 |
+| 자막 압축 v9 수집·검수 | paired 16개 + 당시 신규 16개 실제 응답·AI 판정 17 pass/11 weak/4 major | retry/unknown 0·Chat $0.0073214·native 감사 32개 pending; 배포 HOLD |
+| v10 제약 발성 source | 발성 네 캐릭터 각 20개 D palette·native JSON enum·공통 decoder·말 중심 의미 우선 | 제품 153 tests·3,068 assertions·앱/tools typecheck·lint·build 통과 보고; 의미·감정 정답 보장 아님 |
+| v10 실제 수집·검수 | 기존 32개 비맹검 회귀 + 신규 합성 16개 = 48개; 전체 AI 16 pass/30 weak/2 major | Chat $0.0123316·retry/unknown 0·native 감사 48개 pending; 소유·유효 조건 오류로 배포 HOLD |
+| v11 source·준비 당시 | 말 중심 압축·조건/소유/화자 회귀 보강; 제품 162 tests·3,225 assertions·앱/tools typecheck·lint·build 통과 보고 | 48개 회귀 + 신규 목표 합성 8개 = 56개 계획; 실행 전 실제 0·예약 상한 $0.0989184 |
+| v11 실제 수집·검수 후속 | 실제 56개·AI pass 20/weak 28/major 8·HOLD | Chat $0.0144954·native 감사 56개 HTTP 404 pending; 소유·조건·화자 오류 |
+| 10/23 말 중심 추가 비교 | 8개 합성 입력×A/B/C=24개·첫 판정 동결 뒤 매핑 공개·retry/unknown 0 | 원 A/B/C major 5/3/4·독립 의미 검수도 모두 HOLD·원 판정 불변 |
+| 10/23 후속 repair16 | 8입력×2후보=16개·원 판정 동결 뒤 매핑 공개·D/E 각각 major 1개 | 모두 HOLD·독립 의미 15/16 일치·Chat $0.00344995·새 말투 배포 없음 |
+| 후속 speaker-fix 24개 | 같은 12입력·F Haiku 4/6/2·G Gemini 3/4/5 | 모두 HOLD·원/독립 의미 21/24 일치·Chat $0.00531425 |
+| 최종 같은 12입력 모델 비교 24개 | H GPT-5.4 mini 4/8/0·I Haiku 재현 5/5/2·원/독립 의미 20/24 일치 | 말 중심 H·발성 Haiku 통합·최종 검사/소스 승인 완료·실제 배포는 별도 릴리스 근거 |
 
 `qualityValidated: false`와 사람 점수 미평가 상태를 유지한다. AI 관찰·agent 판정·사람 채점을 서로 대신 세지 않는다.
 
@@ -304,7 +317,7 @@ v5 모몽가 추가 30개는 10/18 KST에 완료했다. 보호된 별도 서버�
 
 ### v8의 발화행위와 발성 보정
 
-이번 릴리스 source는 `2026-10-18-v8-subtitle-voices`, style SHA는 `56bcc53f464268e9ca8a80448a7d1d4addf6cb6392799e03419afc16a9a932ca`다. 같은 화자의 진술·질문·부탁을 유지하도록 보강하고 하치와레 반환 요청의 대조 예시, 하치와레·랏코·시사의 중립 진술 예시를 추가했다. 부사절의 부정을 화자의 거절로 잘못 고르는 범위를 줄였다. 치이카와·우사기·쿠리만쥬·후루혼야에는 뜻단어나 단어 조각 대신 정해 둔 짧은 발성 재료를 쓰도록 안내한다. **이 재료 제한은 잠정 제품 정책이며 원작에서 단어를 말할 수 없다는 증거가 아니다.**
+당시 릴리스 source는 `2026-10-18-v8-subtitle-voices`, style SHA는 `56bcc53f464268e9ca8a80448a7d1d4addf6cb6392799e03419afc16a9a932ca`다. 같은 화자의 진술·질문·부탁을 유지하도록 보강하고 하치와레 반환 요청의 대조 예시, 하치와레·랏코·시사의 중립 진술 예시를 추가했다. 부사절의 부정을 화자의 거절로 잘못 고르는 범위를 줄였다. 치이카와·우사기·쿠리만쥬·후루혼야에는 뜻단어나 단어 조각 대신 정해 둔 짧은 발성 재료를 쓰도록 안내했다. **이 재료 제한은 잠정 제품 정책이며 원작에서 단어를 말할 수 없다는 증거가 아니다.**
 
 제품 130 tests·2,021 assertions, 앱/tools typecheck·lint·Bun build를 통과했고 Architect가 제품 source를 검토했다. 같은 32개 실제 재검수는 한 runner에서 모두 완료했고 Haiku/Anthropic·`stop` 각각 32개, reasoning·retry·unknown·문자 손상·공개 Blob quota 사용은 0이었다. 원 HTTP 32개·저널 65 events·결과 32개의 연결을 확인했다. Chat 보고 비용은 **$0.0064297**, 첫 v7과의 합계는 **$0.0122055**다. native 감사 32개 pending과 계정 최종 청구 미확인을 유지한다. 실제 실행 증거 SHA는 `4b8090286d497ec52cedfebd66a2c93eb66f1ca471ef1041ca28a78ba8af2cfa`, 안전한 출력 export SHA는 `4938bb28b9fe282e60e1d897bf396e3cd161bc8e5cb99b39552338aad742e524`다.
 
@@ -317,6 +330,67 @@ v5 모몽가 추가 30개는 10/18 KST에 완료했다. 보호된 별도 서버�
 첫 v7의 하치와레 반환/중립 반전 2건, 발성형 뜻단어·단어 조각 4건, 후루혼야 발성 개수 초과는 이 재검수에서 재발하지 않았다. 모몽가의 자기 호칭·자기 칭찬은 허용한 수사적 허세로 보되 실제 어법이나 작품 전체의 빈도를 검증한 것은 아니다. 소리만으로 중립 사실의 세부 뜻을 완전히 해독했다고 평가하지 않는다. 최종 검수 SHA는 `8c9808063e205672119067a608d48b1dcb2cd82aa7caf4524b678005448e6736`다.
 
 첫 결과를 보고 교정한 비맹검 동일 표본이므로 독립 holdout·일반화 성능·8명 전체의 원작 정확도를 입증하지 않는다. 기술 검증·모델 검수·공개 배포는 별도 결과다. 배포의 정확한 Git SHA·Vercel UID/`READY`·도메인·공개 canary는 릴리스 증거로 따로 확인하며 모델 결과로 대신하지 않는다. 첫 v7의 실패·판정·비용을 v8 결과로 덮어쓰지 않는다.
+
+### 자막 압축 v9의 수집과 검수 상태
+
+당시 검수 source `2026-10-18-v9-subtitle-compression`은 현재의 핵심 감정·의도를 우선하고 과거 경위·지나간 감정을 생략하는 방향이다. 두 감정이 현재 동시에 남아 있을 때만 두 박자로 표현하며, 발성은 보통 1–2개·최대 3개로 줄인다. 말 중심 캐릭터도 짧은 감탄으로 끝낼 수 있다. 치이카와의 명백한 현재 거절 입력에만 `아니`를 한 번 허용하는 것은 **D 제품 예외**다. 팬 자막 속 짧은 부정 반응이 제안 거절인지 사실 부정인지는 미확정이므로 다른 뜻단어·사실 부정·부정어가 든 모든 입력으로 확대하지 않는다.
+
+추가 근거는 [새 팬 자막 2관찰](korean-dub-research.md#v9의-추가-자막-관찰과-압축-정책)이다. 우사기의 특수 변신 발성은 평소 기본 어휘에 넣지 않는다. 직접 청취·공식 한국어 자막 대조·독립 원작 회차 확정은 0이며 쿠리만쥬·랏코·후루혼야의 본인 한국어 자막 공백을 유지한다. 연구 원본 `additional-korean-subtitle-scenes-v1.json` SHA는 `c69ac3c52ee35333d3a22d2343fafcf27254a85f244a5f8bdd7b0a567c48c9ab`, 정정·추가 기록 `additional-korean-subtitle-scenes-v1-addendum.json` SHA는 `4e1f02f3d02bdc50b702dded19eaa2df09941d4ebd625abc08810fe001b1c64b`다.
+
+새 평가의 수집 범위는 v8의 긴 입력 **16개 paired 기준 + 독립 신규 16개**다. 신규 입력은 8명당 2개·각 217–248 Unicode code points이며 source 동결 뒤 저자가 v9 스타일 본문을 보지 않고 작성했다. 제품 구현자에게도 공개하지 않은 입력의 독립 첫 검수이지 사람의 맹검 평가는 아니다. 기존 v8 출력·판정은 paired 기준으로만 보존하고 전체 32개를 독립 holdout으로 표시하지 않는다.
+
+최종 style SHA는 `1617115a7855e8e7cf14af652d075c65963cb1bf0643798c9ab8d2b50b1c9428`다. 신규 16개 snapshot SHA `812c49b8efe5243e2a1d56cdd54be6bb1227b1eeea06e0a3ee401162ad0a7e58`와 평가 32개 snapshot SHA `d4206d5ff01f4061c1b28f60eddbe5c226c55b4bb0845539c47c994ff2b5c028`를 구분한다. 기술 검증은 제품 130 tests·2,018 assertions·실패 0, 앱/tools typecheck·lint·Bun build exit 0으로 보고됐다.
+
+이번 Haiku 단발 요청 32개가 정상 응답 32개로 완료됐다. 원 HTTP 32개·journal 65 events·결과 32개 연결과 runner exit 0·finish `complete`를 최종 실행 근거로 확인했고 retry·unknown은 0이다. 안전한 검수 export에서 8명당 4개·paired 16개/신규 16개, 요청/반환 Haiku·Anthropic·`stop` 각각 32개, reasoning 0을 확인했다. `actual32-v9-quality-export.json` SHA는 `6723077a4df9a193fac6b1c98874fc2ba79267f9b556d45837b96cdb9b3bf03b`다.
+
+Chat 보고 비용은 **$0.0073214**다. prompt **69,754**·completion **692**·total **70,446 tokens**, reasoning 0·completion 최대 66 tokens이며 최종 실행 근거 `actual32-v9-final-evidence.json` SHA는 `2d1bafb781ca66c4898c7cb988169fd31f6c578eace9873a5f56e89a152fb617`다. native 독립 감사 32개는 HTTP 404 pending·최종 비용 검증 0개이므로 계정 전체 지출이나 최종 청구 확정으로 표시하지 않는다.
+
+최종 독립 AI 판정은 **pass 17·weak 11·major 4**, 당시 paired 16개는 **13/3/0**, 신규 16개는 **4/8/4**다. 발성 스타일 불확실성은 9개다. 소유 방향 전환·미확인 조건의 확정 사실화·발성형 뜻문장 잔존과 거절 방향 유실 때문에 **v9 공개 배포는 HOLD**다. 판정 `quality-actual32-review.json` SHA는 `34232ff5e7e524fcccb8da22b0cafb7b52ef59bd72d41c027474aceb939a81f7`다. paired 16개의 길이는 총 288→204 code points였지만 길이 감소를 품질 통과로, 옛 v8 판정과의 차이를 같은 조건의 개선율로 표시하지 않는다. 이 입력들은 이후 보정의 회귀 표본이며 독립 holdout이 아니다. 사람 청취/채점 0·`qualityValidated: false`를 유지한다. 수집 성공을 언어 품질 통과나 최종 개선판으로 읽지 않으며 원 128개 점수·가격 snapshot·v8 비용 $0.0064297·원 208개 HOLD는 바꾸지 않는다.
+
+### v10의 제약 발성과 새 48개 계획
+
+새 source `2026-10-18-v10-constrained-vocals`의 style SHA는 `aa3e13a9d6d5d59257f94728d567f47f471880f9baeb604c6bd8321e32236b49`다. 말 중심 네 캐릭터는 핵심 조건·미확인 사실·소유자와 보관자의 차이·요청/반환 방향·주된 거절을 압축보다 우선한다. 발성 네 캐릭터만 각 20개 D 제품 palette를 native JSON schema의 `text` enum으로 선택하고 서버가 정상 완료·정확 JSON/단일 key/타입/enum 일치를 확인한다. 사용자 응답과 Preview mock은 plain text다. 평가의 `rawOutput`은 원 Chat 문자열, `displayOutput`은 공통 decoder의 검증 결과로 분리하며 실패 결과를 고치거나 재시도·fallback하지 않는다.
+
+[OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs)와 [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)의 계약을 확인한 연구 `structured-vocal-api-research-v1.json` SHA는 `8177950caa789be81619d2fff4589b80d2bdfb9bafaab0eed3078fa82fa33906`이다. 이 연구는 native 형식 제약의 지원 근거이며 실제 해당 요청의 유료 성공이나 캐릭터 감정 선택의 정확성을 검증한 것은 아니다. provider 가격 응답에 request 요금 필드가 없다는 사실을 요청료 0원의 증거로 쓰지 않으며 `max_price.request=0`을 유지한다.
+
+제품 153 tests·3,068 assertions·실패 0, 앱/tools typecheck·lint·Bun build·diff 검사 통과가 보고됐다. 검사한 300자 경계 입력의 전체 body 최대는 7,768/8,192 bytes다. 입력 300·최대 3 shots·출력 256 tokens·timeout 30초·reasoning off·Haiku·가격 상한·BotID·사용 제한은 유지한다. 이러한 기술 결과를 실제 의미·감정 품질로 세지 않는다.
+
+실행한 **48개는 기존 32개 비맹검 회귀와 신규 16개**다. 신규 입력은 v9에서 드러난 실패 유형을 겨냥한 자체 합성 231–249 code points이며 저자의 v10 source 비열람·구현자 비공개 범위를 보존한다. 전체를 독립 holdout·사람 맹검·일반 사용자 분포로 부르지 않는다. fixture SHA는 `876f1d558e36ff525b9a834ae0a1039ac361d17c2ed883629fbdd0c959f8de91`, 보수 예약액은 $0.0847872다.
+
+실제 단발 POST 48개가 정상 응답으로 완료됐다. 원 HTTP 48개·journal 97 events·결과 48개, 원 Chat `rawOutput` 보존·공통 decoder `displayOutput` 일치 각각 48개를 확인했다. 발성 native JSON 24개·말 중심 plain text 24개, Haiku/Anthropic·`stop`/native `end_turn` 각각 48개다. runner exit 0·finish `complete`, retry·unknown·추가 모델 호출·공개 API/Blob 작업은 0이다. 안전 export `actual48-v10-quality-export.json` SHA는 `9002a5e27f488c45d2b3a21f8575075689eb79d7ecda68f5a03cb392481e9051`이다.
+
+Chat 보고 비용은 **$0.0123316**, prompt **110,526**·completion **2,558**·total **113,084 tokens**, reasoning 0·completion 최대 239 tokens다. 실제 48개 요청의 body 최대는 6,233 bytes로, 별도 300자 경계 검사의 7,768 bytes와 범위가 다르다. `actual48-v10-final-evidence.json` SHA는 `9162e43a72dec909a747c30b6b57eb73d3a6e35fb0562ffce2fdd3e73de1bbd4`다. native 감사는 48개 HTTP 404 pending으로 계정 전체 지출·최종 청구 확정이 아니다.
+
+표시 대사 48개를 모두 검수한 최종 독립 AI 집계는 아래와 같다. 의미 축은 별도 판정이며 다른 행은 전체 판정의 부분집합이다.
+
+| 범위 | pass | weak | major |
+|---|---:|---:|---:|
+| 전체 48개 | 16 | 30 | 2 |
+| 의미 축 48개 | 26 | 20 | 2 |
+| 기존 32개 비맹검 회귀 | 13 | 18 | 1 |
+| 신규 목표 합성 16개 | 3 | 12 | 1 |
+| 발성 24개 | 8 | 16 | 0 |
+| 말 중심 24개 | 8 | 14 | 2 |
+
+시사의 소유자 전환과 모몽가의 유효한 선행조건 누락으로 **v10 공개 배포는 HOLD**다. `quality-actual48-review.json` SHA는 `94cb01b2e64de7e6fbe5124ccab3dd2fff71711b65cac607273e26575078e61b`, `quality-actual48-report.md` SHA는 `45e4a4a4c4eeb70eb54580f433f7e5e9e966f782235987ec61f647043f529db6`다. 24개 발성 JSON·48개 decoder 연결 통과와 별개로 의미·감정 품질은 승인하지 않았다. 사람 청취/채점·원작 정확 일치 확인은 0이며 당시에는 공개 v8·BotID·사용 제한을 유지했다.
+
+동일한 기존 32개의 표시 대사 총 길이는 v9 **558→v10 1,072 code points(+92.11%)**다. 원 긴 입력 16개는 204→221(+8.33%), 그 안의 발성 8개는 49→37·말 중심 8개는 155→184다. 발성 일부가 짧아진 것을 전반적인 단축이나 일반 품질 개선으로 표현하지 않는다. 원 판정·원 raw/display·native 감사 pending과 비용은 그대로 보존한다.
+
+### v11의 말 중심 압축과 준비 범위
+
+동결 source는 `2026-10-18-v11-spoken-compression`, style SHA는 `19d11cd3ccf06d0b03ff68207233870bc24a42c6aa797a77b6a8dba10444501f`다. 말 중심 네 캐릭터는 현재 핵심 대사·조건을 한 번씩 명확히 남기고, 요청·조건·약속의 D 대조 예시를 줄였다. 유효한 완료 선행조건·소유 방향·화자의 의지/부탁은 유지하며 빌림 허락과 대여 약속, 부정 부탁·아쉬움이 남은 휴식 의사·간접 허용 질문을 구분하도록 보강했다. 시사의 정중한 1인칭 전환이 상대 소유를 바꾸지 않도록 했다. 발성 네 캐릭터·palette·decoder·provider와 운영 경로는 동일하며 이것이 새 의미·감정 품질을 증명하지는 않는다.
+
+제품 162 tests·3,225 assertions·실패 0, 앱/tools typecheck·lint·Bun build·diff 검사 통과가 보고됐다. 검사한 512개 payload는 최대 3 shots·입력 300 code points·전체 body 최대 7,768/8,192 bytes였다. source 준비 승인은 실제 품질 승인과 구분한다. 기본 240개·32개 fixture 본문도 유지하며 이전 payload 동등성을 새 모델 호출이나 품질 점수로 세지 않는다.
+
+**56개 계획은 실패 검토 후 보정한 기존 48개 비맹검 회귀 + 신규 목표 합성 8개**다. 발성 24개·말 중심 32개, 새 8개는 245–259 code points이며 사람의 맹검 평가가 아니다. $0.0989184는 보수 예약 상한이다. 이 절의 실비 미확정·실제 0 상태는 실행 전 준비 시점의 기록이며 이후 실제 결과는 아래에 별도 추가한다. v9/v10의 HOLD·길이 증가·비용·원 응답은 보존한다. [실행 계획](evaluation.md#v11의-말-중심-압축과-56개-검수-계획)을 따른다.
+
+### 2026-10-23에 보완한 v11 실제 56개 결과
+
+후속 원본 보고서와 최종 실행 근거를 확인했다. 실제 호출·표시 출력 검수는 각각 56개이며 **전체 pass 20·weak 28·major 8·HOLD**다. 기존 48개 회귀는 19/26/3, 신규 말 중심 targeted 8개는 1/2/5다. 발성 24개는 6/18/0, 말 중심 32개는 14/10/8이다. 중대 문제는 소유 2개·현재 행동의 선행조건 3개·화자/발화행위 3개였으며 형식·원본 연결 통과가 의미 품질 통과를 뜻하지 않았다.
+
+Chat 보고 비용 **$0.0144954**와 native 감사 56개 HTTP 404 pending을 구분한다. 같은 기존 48개 표시 길이는 **v10 2,101→v11 1,475 code points(-29.80%)**였다. 앞의 v10 1,072 code points는 전체 48개가 아닌 기존 32개 subset이다. 짧아진 사실로 품질 통과를 선언하거나 표본이 다른 32·48·56개의 총합을 개선율로 섞지 않는다.
+
+원본 보고서·최종 실행 근거의 파일명과 SHA는 [추가 기록](evaluations/2026-10-23-model-comparison.md#v11-실제-56개의-후속-기록)에 보존한다. 사람 검수·직접 청취·정식 자막 전사 대조·완벽한 원작 재현 검증은 0이고 v11 공개 배포는 보류다. 10/23의 별도 24개는 첫 판정 동결 뒤 매핑을 공개했고 독립 의미 재검수도 별도 기록했으며, 이 56개 판정이나 옛 가격 snapshot·원 208개 HOLD를 덮어쓰지 않는다.
 
 ### 표준 endpoint 가격 snapshot
 

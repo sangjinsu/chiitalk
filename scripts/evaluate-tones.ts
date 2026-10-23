@@ -41,8 +41,9 @@ export function buildEvaluationJobs(args: string[]): { options: ReturnType<typeo
   }
   const all = fixtures.cases.flatMap((item, caseIndex): EvaluationJob[] => {
     if (!isCharacterId(item.characterId) || !item.text.trim() || Array.from(item.text).length > 300) throw new CliError("Invalid synthetic fixture input.");
-    const messages = buildPayload({ characterId: item.characterId, text: item.text }, options.models[0]!.id).messages;
-    if (Buffer.byteLength(JSON.stringify(messages), "utf8") > 8192) throw new CliError("Prompt exceeds 8 KiB.");
+    const payload = buildPayload({ characterId: item.characterId, text: item.text }, options.models[0]!.id);
+    const messages = payload.messages;
+    if (Buffer.byteLength(JSON.stringify(payload), "utf8") > 8192) throw new CliError("Request body exceeds 8 KiB.");
     return options.models.map((model, modelIndex) => ({ index: caseIndex * options.models.length + modelIndex, caseId: item.id, characterId: item.characterId, category: item.category, input: item.text, expectedMode: item.expectedMode === "vocal" ? "vocal" : "verbal", model, messages }));
   });
   const firstCases = new Set(characters.map((character) => fixtures.cases.find((item) => item.characterId === character.id)!.id));
@@ -51,8 +52,8 @@ export function buildEvaluationJobs(args: string[]): { options: ReturnType<typeo
 }
 async function provenance(): Promise<Provenance> {
   const hash = async (path: string) => createHash("sha256").update(await readFile(new URL(path, import.meta.url))).digest("hex");
-  const [styleSha256, fixtureSha256, modelConfigSha256, providerSha256] = await Promise.all([hash("../src/lib/character-styles.ts"), hash("../data/character-evaluation-inputs.json"), hash("../src/lib/server/model-config.ts"), hash("../src/lib/server/provider.ts")]);
-  return { promptVersion: CHARACTER_STYLE_VERSION, fixturePromptVersion: fixtures.promptVersion, fixtureVersion: fixtures.version, styleSha256, fixtureSha256, modelConfigSha256, providerSha256 };
+  const [styleSha256, fixtureSha256, modelConfigSha256, providerSha256, vocalOutputSha256, vocalPaletteSha256] = await Promise.all([hash("../src/lib/character-styles.ts"), hash("../data/character-evaluation-inputs.json"), hash("../src/lib/server/model-config.ts"), hash("../src/lib/server/provider.ts"), hash("../src/lib/vocal-output.ts"), hash("../src/lib/vocal-palette.ts")]);
+  return { promptVersion: CHARACTER_STYLE_VERSION, fixturePromptVersion: fixtures.promptVersion, fixtureVersion: fixtures.version, styleSha256, fixtureSha256, modelConfigSha256, providerSha256, vocalOutputSha256, vocalPaletteSha256 };
 }
 export async function runCli(args: string[], dependencies?: { key?: string; fetcher?: Parameters<typeof runEvaluation>[0]["fetcher"]; log?: (line: string) => void }): Promise<number> {
   const log = dependencies?.log ?? console.log;

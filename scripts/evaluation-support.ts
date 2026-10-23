@@ -3,7 +3,9 @@ import { dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { isCharacterId } from "../src/lib/characters";
 import { MODEL_CONFIGS, type ModelConfig, type ModelId } from "../src/lib/server/model-config";
-import { buildPayload } from "../src/lib/server/provider";
+import { decodeCharacterOutput } from "../src/lib/vocal-output";
+import { isVocalCharacterId } from "../src/lib/vocal-palette";
+import { buildPayload, isNativeVocalEndpoint } from "../src/lib/server/provider";
 
 // The legacy Qwen alias is fixed; other aliases are verified against exact catalog IDs before POST.
 export interface Model extends ModelConfig { readonly id: ModelId; readonly canonical: string }
@@ -13,11 +15,11 @@ type Json = Record<string, unknown>;
 type Message = { role: "system" | "user" | "assistant"; content: string };
 type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 export interface EvaluationJob { index: number; caseId: string; characterId: string; category: string; input: string; expectedMode: "vocal" | "verbal"; model: Model; messages: Message[] }
-export interface Provenance { promptVersion: string; fixturePromptVersion: string; fixtureVersion: number; styleSha256: string; fixtureSha256: string; modelConfigSha256: string; providerSha256: string }
+export interface Provenance { promptVersion: string; fixturePromptVersion: string; fixtureVersion: number; styleSha256: string; fixtureSha256: string; modelConfigSha256: string; providerSha256: string; vocalOutputSha256?: string; vocalPaletteSha256?: string }
 interface ChatEvidence { returnedModel: string | null; costUsd: number | null; reasoningTokens: number | null; promptTokens: number | null; completionTokens: number | null; totalTokens: number | null; finishReason: string | null }
 export interface EvaluationRow {
   index: number; caseId: string; characterId: string; category: string; model: string; input: string; inputSha256: string;
-  status: "pending" | "ok" | "error"; validationPhase: string; output: string | null; generationId: string | null;
+  status: "pending" | "ok" | "error"; validationPhase: string; output: string | null; rawOutput: string | null; displayOutput: string | null; generationId: string | null;
   httpStatus: number | null; generationHttpStatus: number | null; latencyMs: number | null;
   costUsd: number | null; costDifferenceRecorded: boolean;
   languageSucceeded: boolean; auditStatus: "not-started" | "pending" | "verified" | "violation"; auditError?: string;
@@ -25,7 +27,7 @@ export interface EvaluationRow {
 }
 export interface EvaluationReport {
   schemaVersion: 1; generatedAt: string; syntheticInputsOnly: true; mode: "live"; promptVersion: string; fixturePromptVersion: string; fixtureVersion: number;
-  sourceHashes: { style: string; fixture: string; modelConfig: string; provider: string }; verifiedModelAliases: Record<string, string>; budget: ReturnType<typeof evaluationBudget>; maxRequests: number; modelPostAttempts: number; completedRequests: number; languageSuccesses: number; auditPending: number; halted: boolean; qualityValidated: false;
+  sourceHashes: { style: string; fixture: string; modelConfig: string; provider: string; vocalOutput?: string; vocalPalette?: string }; verifiedModelAliases: Record<string, string>; budget: ReturnType<typeof evaluationBudget>; maxRequests: number; modelPostAttempts: number; completedRequests: number; languageSuccesses: number; auditPending: number; halted: boolean; qualityValidated: false;
   rows: EvaluationRow[]; error?: string;
 }
 const NATIVE_PROMPT_CAP = 16_384;
@@ -54,7 +56,7 @@ function price(value: unknown): number | null {
 function dataObject(value: unknown): Json {
   requireCondition(object(value) && object(value.data), "INVALID_METADATA"); return value.data;
 }
-function extractChat(value: unknown): { output: string | null; generationId: string | null; evidence: ChatEvidence } {
+export function extractChat(value: unknown): { output: string | null; rawOutput: string | null; generationId: string | null; evidence: ChatEvidence } {
   const payload = object(value) ? value : {};
   const choices = Array.isArray(payload.choices) ? payload.choices : [];
   const choice = object(choices[0]) ? choices[0] : {};
@@ -63,7 +65,8 @@ function extractChat(value: unknown): { output: string | null; generationId: str
   const details = object(usage.completion_tokens_details) ? usage.completion_tokens_details : {};
   const text = message.content;
   return {
-    output: typeof text === "string" && text.trim() && Buffer.byteLength(text) <= 8192 ? text.trim() : null,
+    output: typeof text === "string" ? text : null,
+    rawOutput: typeof text === "string" ? text : null,
     generationId: typeof payload.id === "string" && /^gen-[0-9A-Za-z-]+$/.test(payload.id) && payload.id.length <= 128 ? payload.id : null,
     evidence: { returnedModel: typeof payload.model === "string" && payload.model.length <= 128 ? payload.model : null, costUsd: numeric(usage.cost), reasoningTokens: numeric(details.reasoning_tokens), promptTokens: numeric(usage.prompt_tokens), completionTokens: numeric(usage.completion_tokens), totalTokens: numeric(usage.total_tokens), finishReason: typeof choice.finish_reason === "string" && choice.finish_reason.length <= 64 ? choice.finish_reason : null },
   };
@@ -93,12 +96,14 @@ export function validateKeyBudget(value: unknown, requiredBudget: number) {
   const data = dataObject(value);
   requireCondition(data.limit === 5 && data.limit_reset === "monthly" && data.is_management_key === false && finite(data.limit_remaining) && data.limit_remaining + 1e-9 >= requiredBudget, "KEY_BUDGET_UNVERIFIED");
 }
-function providerNames(value: unknown, model: Model): string[] {
+function providerNames(value: unknown, model: Model, vocal = false): string[] {
+  requireCondition(!vocal || model.id === "anthropic/claude-haiku-5.5" && model.provider === "anthropic", "UNSUPPORTED_VOCAL_MODEL");
   const data = dataObject(value);
   requireCondition(Array.isArray(data.endpoints), "INVALID_ENDPOINTS");
   const names: string[] = [];
   for (const item of data.endpoints) {
     if (!object(item) || typeof item.provider_name !== "string" || !object(item.pricing) || !Array.isArray(item.supported_parameters) || !item.supported_parameters.includes("max_tokens") || model.supportsReasoning && !item.supported_parameters.includes("reasoning") || model.provider && item.tag !== model.provider || item.status != null && item.status !== 0) continue;
+    if (vocal && !isNativeVocalEndpoint(item)) continue;
     const input = price(item.pricing.prompt), output = price(item.pricing.completion);
     const request = own(item.pricing, "request") ? price(item.pricing.request) : 0;
     if (input === null || output === null || request !== 0 || input * 1e6 > model.promptPrice || output * 1e6 > model.completionPrice) continue;
@@ -180,10 +185,19 @@ export async function runEvaluation(options: { outPath: string; key: string; job
   requireCondition(key && jobs.length > 0 && jobs.length <= 240 * MODELS.length && provenance.promptVersion === provenance.fixturePromptVersion && [provenance.styleSha256, provenance.fixtureSha256, provenance.modelConfigSha256, provenance.providerSha256].every((hash) => /^[a-f0-9]{64}$/.test(hash)), "INVALID_RUN_CONFIG");
   requireCondition(new Set(jobs.map((job) => `${job.caseId}:${job.model.id}`)).size === jobs.length, "DUPLICATE_JOB");
   for (const job of jobs) requireCondition(MODELS.includes(job.model) && isCharacterId(job.characterId) && job.input.trim() && Array.from(job.input).length <= 300 && Buffer.byteLength(JSON.stringify(job.messages)) <= 8192 && job.messages.at(-1)?.role === "user" && job.messages.at(-1)?.content === JSON.stringify({ inputText: job.input }), "INVALID_JOB");
+  const requests = jobs.map(job => {
+    requireCondition(isCharacterId(job.characterId), "INVALID_JOB");
+    const request = { ...buildPayload({ characterId: job.characterId, text: job.input }, job.model.id), messages: job.messages };
+    requireCondition(Buffer.byteLength(JSON.stringify(request), "utf8") <= 8192, "REQUEST_BODY_TOO_LARGE");
+    if (isVocalCharacterId(job.characterId)) for (const shot of request.messages.filter(message => message.role === "assistant")) {
+      try { decodeCharacterOutput(job.characterId, {content:shot.content,finishReason:"stop"}); } catch { throw new EvaluationError("INVALID_VOCAL_EXAMPLE"); }
+    }
+    return request;
+  });
   const budget = evaluationBudget(jobs);
   requireCondition(Number.isFinite(budget.conservativeMaximumUsd) && budget.conservativeMaximumUsd <= 5, "RUN_BUDGET_EXCEEDS_MONTHLY_LIMIT");
   const fetcher = options.fetcher ?? fetch; const timeout = options.timeoutMs ?? 30_000;
-  const report: EvaluationReport = { schemaVersion: 1, generatedAt: new Date().toISOString(), syntheticInputsOnly: true, mode: "live", promptVersion: provenance.promptVersion, fixturePromptVersion: provenance.fixturePromptVersion, fixtureVersion: provenance.fixtureVersion, sourceHashes: { style: provenance.styleSha256, fixture: provenance.fixtureSha256, modelConfig: provenance.modelConfigSha256, provider: provenance.providerSha256 }, verifiedModelAliases: {}, budget, maxRequests: jobs.length, modelPostAttempts: 0, completedRequests: 0, languageSuccesses: 0, auditPending: 0, halted: false, qualityValidated: false, rows: [] };
+  const report: EvaluationReport = { schemaVersion: 1, generatedAt: new Date().toISOString(), syntheticInputsOnly: true, mode: "live", promptVersion: provenance.promptVersion, fixturePromptVersion: provenance.fixturePromptVersion, fixtureVersion: provenance.fixtureVersion, sourceHashes: { style: provenance.styleSha256, fixture: provenance.fixtureSha256, modelConfig: provenance.modelConfigSha256, provider: provenance.providerSha256, ...(provenance.vocalOutputSha256 ? {vocalOutput:provenance.vocalOutputSha256} : {}), ...(provenance.vocalPaletteSha256 ? {vocalPalette:provenance.vocalPaletteSha256} : {}) }, verifiedModelAliases: {}, budget, maxRequests: jobs.length, modelPostAttempts: 0, completedRequests: 0, languageSuccesses: 0, auditPending: 0, halted: false, qualityValidated: false, rows: [] };
   const save = await createJournal(outPath, report);
   const auth = { Authorization: `Bearer ${key}` };
   const get = (url: string, maxBytes = 65536) => fetchJson(fetcher, url, { method: "GET", headers: auth }, timeout, maxBytes);
@@ -198,21 +212,26 @@ export async function runEvaluation(options: { outPath: string; key: string; job
       requireCondition(entries.length === 1 && object(entry) && typeof entry.canonical_slug === "string" && /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(entry.canonical_slug) && entry.canonical_slug.length <= 128 && (model.id !== "qwen/qwen3.5-9b" || entry.canonical_slug === model.canonical), "CANONICAL_MAPPING_UNVERIFIED");
       requireCondition(!object(entry.reasoning) || entry.reasoning.mandatory !== true, "MANDATORY_REASONING_UNSUPPORTED");
       report.verifiedModelAliases[model.id] = entry.canonical_slug;
-      providers.set(model.id, providerNames(await get(`https://openrouter.ai/api/v1/models/${model.id}/endpoints`), model));
+      providers.set(model.id, providerNames(await get(`https://openrouter.ai/api/v1/models/${model.id}/endpoints`), model, jobs.some(job => job.model.id === model.id && isCharacterId(job.characterId) && isVocalCharacterId(job.characterId))));
     }
     await save();
     for (let position = 0; position < jobs.length; position++) {
       const job = jobs[position]!;
       validateKeyBudget(await get("https://openrouter.ai/api/v1/key"), jobs.slice(position).reduce((sum, item) => sum + maximumCost(item), 0));
-      const row: EvaluationRow = { index: job.index, caseId: job.caseId, characterId: job.characterId, category: job.category, model: job.model.id, input: job.input, inputSha256: createHash("sha256").update(job.input).digest("hex"), status: "pending", validationPhase: "chat-post", output: null, generationId: null, httpStatus: null, generationHttpStatus: null, latencyMs: null, costUsd: null, costDifferenceRecorded: false, languageSucceeded: false, auditStatus: "not-started", humanScores: { fidelity: null, emotionPolarity: null, semanticPreservation: job.expectedMode === "vocal" ? "not-applicable" : null, naturalKorean: null, noInventedFacts: null, noPromptLeak: null } };
+      const row: EvaluationRow = { index: job.index, caseId: job.caseId, characterId: job.characterId, category: job.category, model: job.model.id, input: job.input, inputSha256: createHash("sha256").update(job.input).digest("hex"), status: "pending", validationPhase: "chat-post", output: null, rawOutput: null, displayOutput: null, generationId: null, httpStatus: null, generationHttpStatus: null, latencyMs: null, costUsd: null, costDifferenceRecorded: false, languageSucceeded: false, auditStatus: "not-started", humanScores: { fidelity: null, emotionPolarity: null, semanticPreservation: job.expectedMode === "vocal" ? "not-applicable" : null, naturalKorean: null, noInventedFacts: null, noPromptLeak: null } };
       report.rows.push(row); report.modelPostAttempts++; await save();
       const start = performance.now();
       try {
         requireCondition(isCharacterId(job.characterId), "INVALID_JOB");
-        const request = { ...buildPayload({ characterId: job.characterId, text: job.input }, job.model.id), messages: job.messages };
+        const request = requests[position]!;
         const payload = await fetchJson(fetcher, "https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify(request) }, timeout, 65536, async (status) => { row.httpStatus = status; await save(); });
-        const evidence = extractChat(payload); row.output = evidence.output; row.generationId = evidence.generationId; row.chatEvidence = evidence.evidence; row.costUsd = evidence.evidence.costUsd; row.validationPhase = "chat-validation"; await save();
+        const evidence = extractChat(payload); row.output = evidence.output; row.rawOutput = evidence.rawOutput; row.generationId = evidence.generationId; row.chatEvidence = evidence.evidence; row.costUsd = evidence.evidence.costUsd; row.validationPhase = "chat-validation"; await save();
         validateChat(payload, row, job.model, report.verifiedModelAliases[job.model.id]!);
+        try {
+          const choice = (payload as Json).choices as Json[];
+          const message = choice[0]!.message as Json;
+          row.displayOutput = decodeCharacterOutput(job.characterId, {content:row.rawOutput,finishReason:choice[0]!.finish_reason,nativeFinishReason:choice[0]!.native_finish_reason,refusal:message.refusal ?? (choice[0]!.native_finish_reason === "refusal" ? "refusal" : undefined)});
+        } catch { throw new EvaluationError("INVALID_CHARACTER_OUTPUT"); }
         row.status = "ok"; row.languageSucceeded = true; report.languageSuccesses++;
         row.auditStatus = "pending"; report.auditPending++;
         row.validationPhase = "generation-get"; await save();
